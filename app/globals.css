@@ -3,6 +3,21 @@
 @tailwind utilities;
 
 :root {
-  --background: #020617;
-  --foreground: #f8fafc;
+  --background: #F7F7F5;
+  --surface: #FFFFFF;
+  --text: #111111;
+  --textSecondary: #5C5C5C;
+  --border: #E5E5E2;
+  --accent: #E8C547;
+  --accentText: #111111;
+  --navy: #0B1D33;
+  --success: #1F7A4D;
+  --danger: #B33A3A;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  min-height: 100vh;
 }

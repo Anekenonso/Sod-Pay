@@ -10,7 +10,18 @@ export default {
     extend: {
       colors: {
         background: "var(--background)",
-        foreground: "var(--foreground)",
+        surface: "var(--surface)",
+        textPrimary: "var(--text)",
+        textSecondary: "var(--textSecondary)",
+        borderCustom: "var(--border)",
+        accent: "var(--accent)",
+        accentText: "var(--accentText)",
+        navy: "var(--navy)",
+        success: "var(--success)",
+        danger: "var(--danger)",
+      },
+      transitionDuration: {
+        motion: "200ms",
       },
     },
   },
