@@ -92,6 +92,20 @@ export class RealTariSodClient implements TariSodClient {
       const sodId = `sod_${txId.slice(0, 8)}`;
       const claimBadgeId = `badge_${txId.slice(0, 8)}`;
 
+      if (typeof window !== "undefined") {
+        try {
+          const key = `sod_created_${signerAddress}`;
+          const existing = JSON.parse(localStorage.getItem(key) || "[]");
+          if (!existing.includes(sodId)) {
+            existing.push(sodId);
+            localStorage.setItem(key, JSON.stringify(existing));
+          }
+          localStorage.setItem(`sod_badge_${sodId}`, signerAddress);
+        } catch {
+          // Local storage unavailable
+        }
+      }
+
       const newSod: Sod = {
         id: sodId,
         status: "Created",
@@ -327,10 +341,32 @@ export class RealTariSodClient implements TariSodClient {
   }
 
   async listSodsByCreator(creatorAddress: string): Promise<Sod[]> {
-    return [];
+    try {
+      if (typeof window !== "undefined") {
+        const key = `sod_created_${creatorAddress}`;
+        const ids: string[] = JSON.parse(localStorage.getItem(key) || "[]");
+        const sods: Sod[] = [];
+        for (const id of ids) {
+          const s = await this.getSod(id);
+          if (s) sods.push(s);
+        }
+        return sods;
+      }
+      return [];
+    } catch {
+      return [];
+    }
   }
 
   async userHoldsClaimBadge(sodId: string, userAddress: string): Promise<boolean> {
-    return false;
+    try {
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem(`sod_badge_${sodId}`);
+        if (stored === userAddress) return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
   }
 }

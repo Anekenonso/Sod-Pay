@@ -28,4 +28,16 @@ describe("Wallet session and client factory (T-16, R-07)", () => {
     expect(typeof client.listSodsByCreator).toBe("function");
     expect(typeof client.userHoldsClaimBadge).toBe("function");
   });
+
+  it("listSodsByCreator returns an array on real client (T-31)", async () => {
+    const client = getTariSodClient(false);
+    const list = await client.listSodsByCreator("addr_alice");
+    expect(Array.isArray(list)).toBe(true);
+  });
+
+  it("userHoldsClaimBadge returns false for unknown address (T-31)", async () => {
+    const client = getTariSodClient(false);
+    const holds = await client.userHoldsClaimBadge("sod_unknown", "addr_bob");
+    expect(holds).toBe(false);
+  });
 });
