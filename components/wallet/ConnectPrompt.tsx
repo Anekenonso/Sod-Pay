@@ -9,7 +9,6 @@ interface ConnectPromptProps {
   onClose: () => void;
   onConnect: (address: string) => void;
   actionName?: string;
-  isDemo?: boolean;
 }
 
 export function ConnectPrompt({
@@ -17,17 +16,10 @@ export function ConnectPrompt({
   onClose,
   onConnect,
   actionName = "continue",
-  isDemo = false,
 }: ConnectPromptProps) {
   const [addressInput, setAddressInput] = useState("");
 
   if (!isOpen) return null;
-
-  const handleSimConnect = () => {
-    const mockAddress = `tari_sim_${Math.random().toString(36).substring(2, 8)}`;
-    onConnect(mockAddress);
-    onClose();
-  };
 
   const handleManualConnect = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,30 +48,19 @@ export function ConnectPrompt({
           </p>
         </div>
 
-        {isDemo ? (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-[#E8C547]/30 bg-[#E8C547]/10 p-3.5 text-xs text-[#111111]">
-              <span className="font-bold">SIMULATED MODE:</span> You can instantly connect a simulated Tari account to test the end-to-end flow.
-            </div>
-            <Button onClick={handleSimConnect} size="lg" className="w-full">
-              Connect Simulated Account
-            </Button>
-          </div>
-        ) : (
-          <form onSubmit={handleManualConnect} className="space-y-4">
-            <Input
-              label="Tari Wallet Address / Daemon Public Key"
-              placeholder="e.g. 02a1b2c3d4..."
-              value={addressInput}
-              onChange={(e) => setAddressInput(e.target.value)}
-              required
-              helperText="Connect to your local Tari wallet daemon"
-            />
-            <Button type="submit" size="lg" className="w-full">
-              Connect Wallet
-            </Button>
-          </form>
-        )}
+        <form onSubmit={handleManualConnect} className="space-y-4">
+          <Input
+            label="Tari Wallet Address / Daemon Public Key"
+            placeholder="e.g. 02a1b2c3d4..."
+            value={addressInput}
+            onChange={(e) => setAddressInput(e.target.value)}
+            required
+            helperText="Connect to your local Tari wallet daemon"
+          />
+          <Button type="submit" size="lg" className="w-full">
+            Connect Wallet
+          </Button>
+        </form>
 
         <div className="pt-2 text-center">
           <button

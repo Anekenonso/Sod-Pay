@@ -28,12 +28,10 @@ export const MICROCOPY = {
   CLAIM_BADGE_ONLY: "Only your claim badge can unlock these funds.",
   REVEAL_MUTUAL_REQUIRED: "Nothing shown until both approve.",
   REVEAL_IRREVERSIBLE: "This cannot be undone.",
-  DEMO_BANNER: "Demo mode — SIMULATED — no real funds.",
 } as const;
 
 export const APP_CONFIG = {
   DEFAULT_NETWORK: process.env.NEXT_PUBLIC_NETWORK || "mainnet",
-  IS_DEMO_DEFAULT: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
   WALLET_DAEMON_URL: process.env.NEXT_PUBLIC_WALLET_DAEMON_URL || "http://127.0.0.1:9000/json_rpc",
   INDEXER_URL: process.env.NEXT_PUBLIC_INDEXER_URL || "",
   TEMPLATE_ADDRESS: process.env.NEXT_PUBLIC_TEMPLATE_ADDRESS || "",

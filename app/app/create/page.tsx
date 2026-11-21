@@ -5,11 +5,11 @@ import Link from "next/link";
 import { CreateForm, CreateSodFormData } from "@/components/sod/CreateForm";
 import { SharePanel } from "@/components/sod/SharePanel";
 import { ConnectPrompt } from "@/components/wallet/ConnectPrompt";
-import { useDemo } from "@/components/demo/DemoProvider";
+import { useTariClient } from "@/lib/tari/provider";
 import { Sod } from "@/lib/sod";
 
 export default function CreateSodPage() {
-  const { client, isDemo } = useDemo();
+  const client = useTariClient();
   const [createdSod, setCreatedSod] = useState<Sod | null>(null);
   const [claimBadgeId, setClaimBadgeId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -137,7 +137,6 @@ export default function CreateSodPage() {
         onClose={() => setShowConnectModal(false)}
         onConnect={handleWalletConnected}
         actionName="create a Sod"
-        isDemo={isDemo}
       />
     </main>
   );

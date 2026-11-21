@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useDemo } from "@/components/demo/DemoProvider";
+import { useTariClient } from "@/lib/tari/provider";
 import { Sod } from "@/lib/sod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -15,7 +15,7 @@ interface PayViewProps {
 }
 
 export function PayView({ id }: PayViewProps) {
-  const { client, isDemo } = useDemo();
+  const client = useTariClient();
   const [sod, setSod] = useState<Sod | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -294,7 +294,6 @@ export function PayView({ id }: PayViewProps) {
         onClose={() => setShowConnectModal(false)}
         onConnect={handleWalletConnected}
         actionName="pay this Sod"
-        isDemo={isDemo}
       />
     </main>
   );

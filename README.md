@@ -7,7 +7,6 @@
 ## 1. Links & Resources
 
 - **Live Application:** [https://sod-pay.vercel.app](https://sod-pay.vercel.app) *(or local `http://localhost:3000`)*
-- **Interactive Demo:** [https://sod-pay.vercel.app?demo=1](https://sod-pay.vercel.app?demo=1)
 - **GitHub Repository:** [https://github.com/Anekenonso/Sod-Pay](https://github.com/Anekenonso/Sod-Pay)
 - **Tari Template:** `template/src/lib.rs` (Tari Ootle WASM contract)
 - **Announcement Thread:** [Tari Forum Contest Thread /t/520](https://tari.community)
@@ -23,7 +22,7 @@
 | **Privacy Model** | Amount hidden in confidential vault; mutual approval required for reveal |
 | **Access Control** | Non-fungible Claim Badge minted directly to creator; non-transferable authority |
 | **Cancellation** | Creator only, strictly before payment has been deposited |
-| **Default Mode** | Tari Mainnet default (`mode: REAL`); zero-setup demo mode (`?demo=1`) |
+| **Execution Mode** | Direct on-chain Tari Mainnet (`mode: "REAL"`) |
 
 ---
 
@@ -86,10 +85,11 @@ The protocol enforces 5 core invariants in both the Rust template (`template/src
 
 ---
 
-## 8. REAL vs. SIMULATED Mode
+## 8. Network & Execution Mode
 
-- **REAL (`mode: "REAL"`):** The default operational mode. Connects to the Tari Indexer and Tari Wallet Daemon via `@tari-project/ootle` SDK. Every action signs and submits an on-chain transaction.
-- **SIMULATED (`mode: "SIMULATED"`):** Activated via `?demo=1` or the navigation toggle. Exercises the complete contract state machine in-memory without requiring a local wallet daemon or testnet tokens. A persistent banner clearly identifies simulation mode.
+Sod Pay operates directly on-chain (`mode: "REAL"`):
+- Connects to the Tari Indexer and Tari Wallet Daemon via `@tari-project/ootle` SDK.
+- Every action (creating links, depositing confidential payments, claiming via badge, requesting/approving reveal, canceling) signs and submits authentic on-chain transactions.
 
 ---
 

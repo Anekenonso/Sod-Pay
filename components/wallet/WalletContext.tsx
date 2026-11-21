@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { APP_CONFIG } from "@/lib/constants";
 import { ConnectPrompt } from "./ConnectPrompt";
-import { useDemo } from "@/components/demo/DemoProvider";
 
 interface WalletContextValue {
   address: string | null;
@@ -17,7 +16,6 @@ interface WalletContextValue {
 const WalletContext = createContext<WalletContextValue | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const { isDemo } = useDemo();
   const [address, setAddress] = useState<string | null>(null);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [promptAction, setPromptAction] = useState("continue");
@@ -77,7 +75,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         onClose={() => setIsPromptOpen(false)}
         onConnect={connect}
         actionName={promptAction}
-        isDemo={isDemo}
       />
     </WalletContext.Provider>
   );

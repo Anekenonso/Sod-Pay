@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useDemo } from "@/components/demo/DemoProvider";
+import { useTariClient } from "@/lib/tari/provider";
 import { Sod, canCancel, canClaim, canRequestReveal, canApproveReveal } from "@/lib/sod";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -15,7 +15,7 @@ interface SodDetailViewProps {
 }
 
 export function SodDetailView({ id }: SodDetailViewProps) {
-  const { client, isDemo } = useDemo();
+  const client = useTariClient();
   const { toast } = useToast();
   const [sod, setSod] = useState<Sod | null>(null);
   const [holdsBadge, setHoldsBadge] = useState<boolean>(false);
@@ -444,7 +444,6 @@ export function SodDetailView({ id }: SodDetailViewProps) {
           loadSod();
         }}
         actionName="manage this Sod"
-        isDemo={isDemo}
       />
     </div>
   );

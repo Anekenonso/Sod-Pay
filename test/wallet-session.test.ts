@@ -9,13 +9,8 @@ describe("Wallet session and client factory (T-16, R-07)", () => {
     expect(session.network).toBe("mainnet");
   });
 
-  it("returns simulated client when isDemo is true", () => {
-    const client = getTariSodClient(true);
-    expect(client.mode).toBe("SIMULATED");
-  });
-
-  it("returns real on-chain client when isDemo is false (R-07, T-19)", () => {
-    const client = getTariSodClient(false);
+  it("returns real on-chain client (R-07, T-19)", () => {
+    const client = getTariSodClient();
     expect(client).toBeDefined();
     expect(client.mode).toBe("REAL");
     expect(typeof client.createSod).toBe("function");
@@ -30,13 +25,13 @@ describe("Wallet session and client factory (T-16, R-07)", () => {
   });
 
   it("listSodsByCreator returns an array on real client (T-31)", async () => {
-    const client = getTariSodClient(false);
+    const client = getTariSodClient();
     const list = await client.listSodsByCreator("addr_alice");
     expect(Array.isArray(list)).toBe(true);
   });
 
   it("userHoldsClaimBadge returns false for unknown address (T-31)", async () => {
-    const client = getTariSodClient(false);
+    const client = getTariSodClient();
     const holds = await client.userHoldsClaimBadge("sod_unknown", "addr_bob");
     expect(holds).toBe(false);
   });

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useDemo } from "@/components/demo/DemoProvider";
+import { useTariClient } from "@/lib/tari/provider";
 import { Sod } from "@/lib/sod";
 import { SodCard } from "@/components/sod/SodCard";
 import { Button } from "@/components/ui/Button";
@@ -10,7 +10,7 @@ import { ConnectPrompt } from "@/components/wallet/ConnectPrompt";
 import { MICROCOPY } from "@/lib/constants";
 
 export default function MySodsPage() {
-  const { client, isDemo } = useDemo();
+  const client = useTariClient();
   const [sods, setSods] = useState<Sod[]>([]);
   const [badgeMap, setBadgeMap] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -119,7 +119,7 @@ export default function MySodsPage() {
             </div>
             <h3 className="text-lg font-bold text-[#111111]">Connect to View Your Sods</h3>
             <p className="mt-2 text-sm text-[#5C5C5C]">
-              Connect your Tari wallet or test in demo mode to list your created links.
+              Connect your Tari wallet to list your created links.
             </p>
             <div className="mt-6">
               <Button onClick={() => setShowConnectModal(true)} size="md">
@@ -192,7 +192,6 @@ export default function MySodsPage() {
         onClose={() => setShowConnectModal(false)}
         onConnect={handleWalletConnected}
         actionName="view your Sods"
-        isDemo={isDemo}
       />
     </main>
   );
