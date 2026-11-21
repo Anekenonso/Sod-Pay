@@ -1,23 +1,31 @@
-import {
-  TransactionBuilder,
-  Network,
-  sendTransaction,
-  NamedArg,
-} from "@tari-project/ootle";
-import { ProviderBuilder, IndexerProvider } from "@tari-project/ootle-indexer";
-import { WalletDaemonSigner } from "@tari-project/ootle-wallet-daemon-signer";
+import type { NamedArg, Network as NetworkType } from "@tari-project/ootle";
+import type { IndexerProvider } from "@tari-project/ootle-indexer";
+import type { WalletDaemonSigner } from "@tari-project/ootle-wallet-daemon-signer";
 import { Sod, CreateSodInput } from "../sod";
 import { TariSodClient } from "./types";
 import { APP_CONFIG } from "../constants";
 import { logAction } from "./logger";
 import { waitForCommitted } from "./finality";
 
+async function loadOotleSdk() {
+  const ootle = await import("@tari-project/ootle");
+  const indexer = await import("@tari-project/ootle-indexer");
+  const daemon = await import("@tari-project/ootle-wallet-daemon-signer");
+  return {
+    TransactionBuilder: ootle.TransactionBuilder,
+    Network: ootle.Network,
+    sendTransaction: ootle.sendTransaction,
+    ProviderBuilder: indexer.ProviderBuilder,
+    WalletDaemonSigner: daemon.WalletDaemonSigner,
+  };
+}
+
 export class RealTariSodClient implements TariSodClient {
   public readonly mode = "REAL";
   private providerPromise: Promise<IndexerProvider> | null = null;
 
   constructor(
-    private network: Network = Network.MainNet,
+    private networkName: string = APP_CONFIG.DEFAULT_NETWORK,
     private indexerUrl: string = APP_CONFIG.INDEXER_URL,
     private templateAddress: string = APP_CONFIG.TEMPLATE_ADDRESS,
     private walletDaemonUrl: string = APP_CONFIG.WALLET_DAEMON_URL,
@@ -26,8 +34,10 @@ export class RealTariSodClient implements TariSodClient {
 
   private async getProvider(): Promise<IndexerProvider> {
     if (!this.providerPromise) {
+      const { ProviderBuilder, Network } = await loadOotleSdk();
+      const network = this.networkName === "mainnet" ? Network.MainNet : Network.LocalNet;
       this.providerPromise = ProviderBuilder.new()
-        .withNetwork(this.network)
+        .withNetwork(network)
         .withUrl(this.indexerUrl || "https://indexer.mainnet.tari.com")
         .connect();
     }
@@ -35,10 +45,18 @@ export class RealTariSodClient implements TariSodClient {
   }
 
   private async getSigner(): Promise<WalletDaemonSigner> {
+    const { WalletDaemonSigner } = await loadOotleSdk();
     return WalletDaemonSigner.connect({
       url: this.walletDaemonUrl,
       authToken: process.env.WALLET_DAEMON_AUTH_TOKEN || undefined,
     });
+  }
+
+  private async createTxBuilder() {
+    const { TransactionBuilder, Network, sendTransaction } = await loadOotleSdk();
+    const network = this.networkName === "mainnet" ? Network.MainNet : Network.LocalNet;
+    const builder = new TransactionBuilder(network, this.defaultMaxEpoch);
+    return { builder, sendTransaction };
   }
 
   async createSod(
@@ -48,9 +66,7 @@ export class RealTariSodClient implements TariSodClient {
     try {
       const provider = await this.getProvider();
       const signer = await this.getSigner();
-
-      // Build transaction invoking template create function with validity window (maxEpoch)
-      const builder = new TransactionBuilder(this.network, this.defaultMaxEpoch);
+      const { builder, sendTransaction } = await this.createTxBuilder();
 
       const args: NamedArg[] = [];
       if (input.amount) {
@@ -124,8 +140,8 @@ export class RealTariSodClient implements TariSodClient {
     try {
       const provider = await this.getProvider();
       const signer = await this.getSigner();
+      const { builder, sendTransaction } = await this.createTxBuilder();
 
-      const builder = new TransactionBuilder(this.network, this.defaultMaxEpoch);
       const args: NamedArg[] = [{ Literal: JSON.stringify(amount) }];
 
       builder.callMethod(
@@ -172,8 +188,8 @@ export class RealTariSodClient implements TariSodClient {
   ): Promise<{ sod: Sod; txId: string }> {
     const provider = await this.getProvider();
     const signer = await this.getSigner();
+    const { builder, sendTransaction } = await this.createTxBuilder();
 
-    const builder = new TransactionBuilder(this.network, this.defaultMaxEpoch);
     builder.callMethod(
       {
         componentAddress: sodId,
@@ -199,8 +215,8 @@ export class RealTariSodClient implements TariSodClient {
   ): Promise<{ sod: Sod; txId: string }> {
     const provider = await this.getProvider();
     const signer = await this.getSigner();
+    const { builder, sendTransaction } = await this.createTxBuilder();
 
-    const builder = new TransactionBuilder(this.network, this.defaultMaxEpoch);
     builder.callMethod(
       {
         componentAddress: sodId,
@@ -226,8 +242,8 @@ export class RealTariSodClient implements TariSodClient {
   ): Promise<{ sod: Sod; txId: string }> {
     const provider = await this.getProvider();
     const signer = await this.getSigner();
+    const { builder, sendTransaction } = await this.createTxBuilder();
 
-    const builder = new TransactionBuilder(this.network, this.defaultMaxEpoch);
     builder.callMethod(
       {
         componentAddress: sodId,
@@ -253,8 +269,8 @@ export class RealTariSodClient implements TariSodClient {
   ): Promise<{ sod: Sod; txId: string }> {
     const provider = await this.getProvider();
     const signer = await this.getSigner();
+    const { builder, sendTransaction } = await this.createTxBuilder();
 
-    const builder = new TransactionBuilder(this.network, this.defaultMaxEpoch);
     builder.callMethod(
       {
         componentAddress: sodId,

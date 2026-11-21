@@ -1,8 +1,10 @@
 import { TariSodClient } from "./types";
 import { SimTariSodClient } from "./sod";
+import { RealTariSodClient } from "./real";
 import { APP_CONFIG } from "../constants";
 
 let cachedSimClient: SimTariSodClient | null = null;
+let cachedRealClient: RealTariSodClient | null = null;
 
 /**
  * Returns the singleton simulated client instance for the session.
@@ -15,16 +17,25 @@ export function getSimClient(): SimTariSodClient {
 }
 
 /**
+ * Returns the singleton real Tari client instance.
+ */
+export function getRealClient(): RealTariSodClient {
+  if (!cachedRealClient) {
+    cachedRealClient = new RealTariSodClient();
+  }
+  return cachedRealClient;
+}
+
+/**
  * Factory for TariSodClient.
- * In demo mode: returns simulated client.
- * In non-demo: returns real client (or simulated fallback if real SDK not connected yet).
+ * In demo mode: returns simulated client (mode: "SIMULATED").
+ * In non-demo (mainnet default): returns real client (mode: "REAL").
  */
 export function getTariSodClient(isDemo: boolean): TariSodClient {
   if (isDemo) {
     return getSimClient();
   }
-  // Real client shell will be hooked in T-17/T-19
-  return getSimClient();
+  return getRealClient();
 }
 
 export interface WalletSession {

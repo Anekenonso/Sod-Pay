@@ -14,9 +14,18 @@ describe("Wallet session and client factory (T-16, R-07)", () => {
     expect(client.mode).toBe("SIMULATED");
   });
 
-  it("returns client when isDemo is false", () => {
+  it("returns real on-chain client when isDemo is false (R-07, T-19)", () => {
     const client = getTariSodClient(false);
     expect(client).toBeDefined();
+    expect(client.mode).toBe("REAL");
     expect(typeof client.createSod).toBe("function");
+    expect(typeof client.paySod).toBe("function");
+    expect(typeof client.claimSod).toBe("function");
+    expect(typeof client.cancelSod).toBe("function");
+    expect(typeof client.requestReveal).toBe("function");
+    expect(typeof client.approveReveal).toBe("function");
+    expect(typeof client.getSod).toBe("function");
+    expect(typeof client.listSodsByCreator).toBe("function");
+    expect(typeof client.userHoldsClaimBadge).toBe("function");
   });
 });

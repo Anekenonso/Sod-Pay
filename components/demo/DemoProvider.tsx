@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { TariSodClient } from "@/lib/tari/types";
-import { SimTariSodClient } from "@/lib/tari/sod";
+import { getTariSodClient } from "@/lib/tari/client";
 
 interface DemoContextValue {
   isDemo: boolean;
@@ -13,15 +13,6 @@ interface DemoContextValue {
 }
 
 const DemoContext = createContext<DemoContextValue | undefined>(undefined);
-
-// Shared singleton for simulation state across components during a browser session
-let sharedSimClient: SimTariSodClient | null = null;
-function getSimClient(): SimTariSodClient {
-  if (!sharedSimClient) {
-    sharedSimClient = new SimTariSodClient();
-  }
-  return sharedSimClient;
-}
 
 function DemoParamDetector({ onDetect }: { onDetect: (isDemo: boolean) => void }) {
   const searchParams = useSearchParams();
@@ -61,11 +52,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     setIsDemo(!isDemo);
   };
 
-  const simClient = useMemo(() => getSimClient(), []);
-
-  // For now, in demo mode we provide SimTariSodClient.
-  // In non-demo, real client shell will be hooked up in T-17/T-19.
-  const client: TariSodClient = simClient;
+  // Select client by demo flag: SimTariSodClient in demo, RealTariSodClient on mainnet default (R-07, T-19)
+  const client: TariSodClient = useMemo(() => getTariSodClient(isDemo), [isDemo]);
 
   return (
     <DemoContext.Provider value={{ isDemo, setIsDemo, toggleDemo, client }}>
