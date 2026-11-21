@@ -6,6 +6,7 @@ import { useDemo } from "@/components/demo/DemoProvider";
 import { Sod, canCancel, canClaim, canRequestReveal, canApproveReveal } from "@/lib/sod";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { useToast } from "@/components/ui/Toast";
 import { MICROCOPY } from "@/lib/constants";
 import { ConnectPrompt } from "@/components/wallet/ConnectPrompt";
 
@@ -15,6 +16,7 @@ interface SodDetailViewProps {
 
 export function SodDetailView({ id }: SodDetailViewProps) {
   const { client, isDemo } = useDemo();
+  const { toast } = useToast();
   const [sod, setSod] = useState<Sod | null>(null);
   const [holdsBadge, setHoldsBadge] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,6 +69,7 @@ export function SodDetailView({ id }: SodDetailViewProps) {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       navigator.clipboard.writeText(payUrl);
       setCopied(true);
+      toast("Link copied to clipboard!", "success");
       setTimeout(() => setCopied(false), 2500);
     }
   };
@@ -82,9 +85,13 @@ export function SodDetailView({ id }: SodDetailViewProps) {
     try {
       const res = await client.claimSod(id, userAddress);
       setSod(res.sod);
-      setActionSuccess("Funds successfully claimed into your wallet!");
+      const msg = "Funds successfully claimed into your wallet!";
+      setActionSuccess(msg);
+      toast(msg, "success");
     } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
+      const msg = err instanceof Error ? err.message : "Failed to claim Sod";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setActionLoading(false);
     }
@@ -101,9 +108,13 @@ export function SodDetailView({ id }: SodDetailViewProps) {
     try {
       const res = await client.cancelSod(id, userAddress);
       setSod(res.sod);
-      setActionSuccess("Sod successfully cancelled.");
+      const msg = "Sod successfully cancelled.";
+      setActionSuccess(msg);
+      toast(msg, "info");
     } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
+      const msg = err instanceof Error ? err.message : "Failed to cancel Sod";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setActionLoading(false);
     }
@@ -120,9 +131,13 @@ export function SodDetailView({ id }: SodDetailViewProps) {
     try {
       const res = await client.requestReveal(id, userAddress);
       setSod(res.sod);
-      setActionSuccess("Reveal requested! Waiting for the other party to approve.");
+      const msg = "Reveal requested! Waiting for the other party to approve.";
+      setActionSuccess(msg);
+      toast(msg, "info");
     } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
+      const msg = err instanceof Error ? err.message : "Failed to request reveal";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setActionLoading(false);
     }
@@ -139,9 +154,13 @@ export function SodDetailView({ id }: SodDetailViewProps) {
     try {
       const res = await client.approveReveal(id, userAddress);
       setSod(res.sod);
-      setActionSuccess("Reveal approved! Amount is now publicly verified.");
+      const msg = "Reveal approved! Amount is now publicly verified.";
+      setActionSuccess(msg);
+      toast(msg, "success");
     } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
+      const msg = err instanceof Error ? err.message : "Failed to approve reveal";
+      setError(msg);
+      toast(msg, "error");
     } finally {
       setActionLoading(false);
     }
