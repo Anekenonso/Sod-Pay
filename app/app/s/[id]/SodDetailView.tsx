@@ -342,52 +342,75 @@ export function SodDetailView({ id }: SodDetailViewProps) {
         </div>
 
         {/* Action Buttons (Claim, Reveal, Cancel) */}
-        <div className="pt-2 flex flex-col sm:flex-row gap-3">
-          {userCanClaim && (
-            <Button
-              onClick={handleClaim}
-              disabled={actionLoading}
-              size="lg"
-              className="flex-1 font-semibold"
-            >
-              {actionLoading ? "Claiming…" : "Claim Funds"}
-            </Button>
+        <div className="pt-2 flex flex-col gap-3">
+          {sod.status === "Paid" && !holdsBadge && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 flex items-center gap-2">
+              <svg className="h-4 w-4 flex-shrink-0 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <span>{MICROCOPY.CLAIM_BADGE_ONLY}</span>
+            </div>
           )}
 
           {userCanReqReveal && (
-            <Button
-              onClick={handleRequestReveal}
-              disabled={actionLoading}
-              variant="outline"
-              size="lg"
-              className="flex-1"
-            >
-              Request Reveal
-            </Button>
+            <p className="text-xs text-[#5C5C5C]">
+              {MICROCOPY.REVEAL_MUTUAL_REQUIRED} {MICROCOPY.REVEAL_IRREVERSIBLE}
+            </p>
           )}
 
           {userCanApproveReveal && (
-            <Button
-              onClick={handleApproveReveal}
-              disabled={actionLoading}
-              size="lg"
-              className="flex-1 font-semibold"
-            >
-              Approve Reveal
-            </Button>
+            <p className="text-xs text-[#B33A3A] font-medium">
+              {MICROCOPY.REVEAL_IRREVERSIBLE}
+            </p>
           )}
 
-          {userCanCancel && (
-            <Button
-              onClick={handleCancel}
-              disabled={actionLoading}
-              variant="outline"
-              size="lg"
-              className="text-[#B33A3A] border-[#B33A3A]/30 hover:bg-[#B33A3A]/10 flex-1"
-            >
-              Cancel Sod
-            </Button>
-          )}
+          <div className="flex flex-col sm:flex-row gap-3">
+            {userCanClaim && (
+              <Button
+                onClick={handleClaim}
+                disabled={actionLoading}
+                size="lg"
+                className="flex-1 font-semibold"
+              >
+                {actionLoading ? "Claiming…" : "Claim Funds"}
+              </Button>
+            )}
+
+            {userCanReqReveal && (
+              <Button
+                onClick={handleRequestReveal}
+                disabled={actionLoading}
+                variant="outline"
+                size="lg"
+                className="flex-1"
+              >
+                Request Reveal
+              </Button>
+            )}
+
+            {userCanApproveReveal && (
+              <Button
+                onClick={handleApproveReveal}
+                disabled={actionLoading}
+                size="lg"
+                className="flex-1 font-semibold"
+              >
+                Approve Reveal
+              </Button>
+            )}
+
+            {userCanCancel && (
+              <Button
+                onClick={handleCancel}
+                disabled={actionLoading}
+                variant="outline"
+                size="lg"
+                className="text-[#B33A3A] border-[#B33A3A]/30 hover:bg-[#B33A3A]/10 flex-1"
+              >
+                Cancel Sod
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
