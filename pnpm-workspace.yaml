@@ -1,0 +1,4 @@
+minimumReleaseAgeExclude:
+  - '@tari-project/ootle-indexer@0.19.0'
+  - '@tari-project/ootle-wallet-daemon-signer@0.19.0'
+  - '@tari-project/ootle@0.19.0'
