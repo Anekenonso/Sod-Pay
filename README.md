@@ -8,6 +8,7 @@
 
 - **Live Application:** [https://sod-pay.vercel.app](https://sod-pay.vercel.app) *(or local `http://localhost:3000`)*
 - **Interactive Demo:** [https://sod-pay.vercel.app?demo=1](https://sod-pay.vercel.app?demo=1)
+- **GitHub Repository:** [https://github.com/Anekenonso/Sod-Pay](https://github.com/Anekenonso/Sod-Pay)
 - **Tari Template:** `template/src/lib.rs` (Tari Ootle WASM contract)
 - **Announcement Thread:** [Tari Forum Contest Thread /t/520](https://tari.community)
 

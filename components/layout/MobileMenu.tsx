@@ -43,7 +43,7 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
           My Sods
         </Link>
         <a
-          href="https://github.com/tari-project"
+          href="https://github.com/Anekenonso/Sod-Pay"
           target="_blank"
           rel="noopener noreferrer"
           onClick={onClose}

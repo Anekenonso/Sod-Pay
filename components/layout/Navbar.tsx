@@ -22,11 +22,10 @@ export function Navbar() {
           <button
             type="button"
             onClick={toggleDemo}
-            className={`text-xs px-2 py-0.5 rounded-full font-semibold border transition-colors ${
-              isDemo
+            className={`text-xs px-2 py-0.5 rounded-full font-semibold border transition-colors ${isDemo
                 ? "bg-[#E8C547]/20 border-[#E8C547] text-[#111111]"
                 : "bg-slate-100 border-slate-200 text-[#5C5C5C]"
-            }`}
+              }`}
             title="Click to toggle between Mainnet and Demo mode"
           >
             {isDemo ? "SIMULATED" : "Mainnet"}
@@ -54,7 +53,7 @@ export function Navbar() {
             My Sods
           </Link>
           <a
-            href="https://github.com/tari-project"
+            href="https://github.com/Anekenonso/Sod-Pay"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-medium text-[#5C5C5C] transition-colors hover:text-[#111111]"

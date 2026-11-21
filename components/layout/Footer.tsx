@@ -25,7 +25,7 @@ export function Footer() {
             My Sods
           </Link>
           <a
-            href="https://github.com/tari-project"
+            href="https://github.com/Anekenonso/Sod-Pay"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-[#111111]"
