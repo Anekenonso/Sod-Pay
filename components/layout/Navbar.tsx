@@ -4,18 +4,34 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { MobileMenu } from "./MobileMenu";
+import { useDemo } from "@/components/demo/DemoProvider";
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isDemo, toggleDemo } = useDemo();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[#E5E5E2] bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        {/* Wordmark logo */}
-        <Link href="/" className="flex items-center gap-1 text-2xl font-bold tracking-tight">
-          <span className="text-[#0B1D33]">Sod</span>
-          <span className="text-[#111111]">Pay</span>
-        </Link>
+        {/* Wordmark logo & Mode pill */}
+        <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-1 text-2xl font-bold tracking-tight">
+            <span className="text-[#0B1D33]">Sod</span>
+            <span className="text-[#111111]">Pay</span>
+          </Link>
+          <button
+            type="button"
+            onClick={toggleDemo}
+            className={`text-xs px-2 py-0.5 rounded-full font-semibold border transition-colors ${
+              isDemo
+                ? "bg-[#E8C547]/20 border-[#E8C547] text-[#111111]"
+                : "bg-slate-100 border-slate-200 text-[#5C5C5C]"
+            }`}
+            title="Click to toggle between Mainnet and Demo mode"
+          >
+            {isDemo ? "SIMULATED" : "Mainnet"}
+          </button>
+        </div>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
