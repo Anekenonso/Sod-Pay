@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useWallet } from "./WalletContext";
 import { APP_CONFIG } from "@/lib/constants";
+import type { TariExtensionProvider } from "@/lib/tari/wallet";
 
 interface ConnectPromptProps {
   isOpen: boolean;
@@ -17,7 +18,13 @@ export function ConnectPrompt({
   onClose,
   actionName = "continue",
 }: ConnectPromptProps) {
-  const { hasExtension, connectExtension, connectDaemon, connectManual } = useWallet();
+  const {
+    hasExtension,
+    detectedExtensions,
+    connectExtension,
+    connectDaemon,
+    connectManual,
+  } = useWallet();
   const [daemonUrl, setDaemonUrl] = useState(APP_CONFIG.WALLET_DAEMON_URL);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,14 +33,18 @@ export function ConnectPrompt({
 
   if (!isOpen) return null;
 
-  const handleConnectExtension = async () => {
+  const handleConnectExtension = async (provider?: TariExtensionProvider) => {
     setError(null);
     setIsConnecting(true);
     try {
-      await connectExtension();
+      await connectExtension(provider);
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to connect to Sapient extension.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to connect to browser extension."
+      );
     } finally {
       setIsConnecting(false);
     }
@@ -88,7 +99,7 @@ export function ConnectPrompt({
             </button>
           </div>
           <p className="mt-1 text-sm text-[#5C5C5C] leading-relaxed">
-            A signer session is required to {actionName}. Sod Pay is non-custodial: your keys and funds stay in your wallet.
+            A signer session is required to {actionName}. Sod Pay is non-custodial: your keys and funds remain in your wallet.
           </p>
         </div>
 
@@ -115,11 +126,11 @@ export function ConnectPrompt({
 
         {/* Primary Options */}
         <div className="space-y-3">
-          {/* 1. Sapient Extension */}
+          {/* 1. Browser Extension(s) */}
           <div className="rounded-xl border border-[#E5E5E2] bg-[#F7F7F5] p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="font-semibold text-sm text-[#111111]">
-                Sapient Browser Extension
+                Browser Extension
               </span>
               {hasExtension ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#1F7A4D] bg-[#1F7A4D]/10 px-2 py-0.5 rounded-full">
@@ -132,24 +143,29 @@ export function ConnectPrompt({
             </div>
 
             {hasExtension ? (
-              <Button
-                type="button"
-                onClick={handleConnectExtension}
-                disabled={isConnecting}
-                size="md"
-                className="w-full justify-center text-sm font-semibold shadow-sm"
-              >
-                {isConnecting ? "Connecting…" : "Connect with Sapient"}
-              </Button>
+              <div className="space-y-2">
+                {detectedExtensions.map((ext) => (
+                  <Button
+                    key={ext.id}
+                    type="button"
+                    onClick={() => handleConnectExtension(ext.provider)}
+                    disabled={isConnecting}
+                    size="md"
+                    className="w-full justify-center text-sm font-semibold shadow-sm"
+                  >
+                    {isConnecting ? "Connecting…" : `Connect with ${ext.name}`}
+                  </Button>
+                ))}
+              </div>
             ) : (
               <div className="space-y-2">
                 <p className="text-xs text-[#5C5C5C] leading-relaxed">
-                  Install the official Sapient extension to sign transactions directly in your browser.
+                  Install Sapient or another compatible Tari extension to sign transactions directly in your browser.
                 </p>
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    onClick={handleConnectExtension}
+                    onClick={() => handleConnectExtension()}
                     variant="outline"
                     size="sm"
                     className="w-full text-xs"

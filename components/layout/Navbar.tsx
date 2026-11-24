@@ -66,7 +66,6 @@ export function Navbar() {
 
         {/* Mobile controls */}
         <div className="flex items-center gap-2 md:hidden">
-          <ConnectButton />
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

@@ -2,102 +2,153 @@ import type { Signer } from "@tari-project/ootle";
 import type { WalletDaemonSigner } from "@tari-project/ootle-wallet-daemon-signer";
 import { APP_CONFIG } from "../constants";
 
-export type WalletType = "sapient" | "daemon" | "manual";
+export type WalletType = "extension" | "daemon" | "manual" | "sapient";
+
+export interface TariProviderRequestArgs {
+  method: string;
+  params?: unknown;
+}
+
+export interface TariExtensionProvider {
+  request?: (args: TariProviderRequestArgs) => Promise<unknown>;
+  signAndSubmitTransaction?: (params: unknown) => Promise<unknown>;
+  connect?: () => Promise<any>;
+  getAccount?: () => Promise<string>;
+  getAddress?: () => Promise<string>;
+  name?: string;
+  isSapient?: boolean;
+  [key: string]: unknown;
+}
+
+export interface DetectedExtension {
+  id: string;
+  name: string;
+  provider: TariExtensionProvider;
+}
 
 export interface ConnectedWallet {
   address: string;
   type: WalletType;
-  signer?: Signer;
+  walletName: string;
+  signer?: Signer; // For daemon
+  provider?: TariExtensionProvider; // For extension
   publicKey?: Uint8Array;
 }
 
 /**
- * Checks whether the Sapient or official Tari browser extension is injected in the window.
+ * Discovers any injected Tari-compatible browser extensions (Sapient, etc.).
+ * Does not hard-code Sapient as the only extension.
  */
-export function isSapientAvailable(): boolean {
-  if (typeof window === "undefined") return false;
-  return typeof (window as unknown as { tari?: unknown }).tari !== "undefined";
+export function getInjectedExtensions(): DetectedExtension[] {
+  if (typeof window === "undefined") return [];
+  const list: DetectedExtension[] = [];
+  const win = window as unknown as Record<string, unknown>;
+
+  if (win.tari && typeof win.tari === "object") {
+    const tari = win.tari as TariExtensionProvider;
+    const name = tari.name || (tari.isSapient ? "Sapient" : "Tari Extension");
+    list.push({
+      id: "tari",
+      name,
+      provider: tari,
+    });
+  }
+
+  if (win.tariProvider && typeof win.tariProvider === "object" && win.tariProvider !== win.tari) {
+    const tp = win.tariProvider as TariExtensionProvider;
+    list.push({
+      id: "tariProvider",
+      name: tp.name || "Tari Provider",
+      provider: tp,
+    });
+  }
+
+  if (win.ootle && typeof win.ootle === "object" && win.ootle !== win.tari) {
+    const ootle = win.ootle as TariExtensionProvider;
+    list.push({
+      id: "ootle",
+      name: ootle.name || "Ootle Wallet",
+      provider: ootle,
+    });
+  }
+
+  return list;
 }
 
 /**
- * Connects to the Sapient browser wallet extension.
+ * Checks whether any compatible Tari browser extension is injected.
  */
-export async function connectSapientExtension(): Promise<ConnectedWallet> {
-  if (typeof window === "undefined" || !isSapientAvailable()) {
+export function isExtensionAvailable(): boolean {
+  return getInjectedExtensions().length > 0;
+}
+
+/**
+ * Backwards compatibility helper for extension check.
+ */
+export function isSapientAvailable(): boolean {
+  return isExtensionAvailable();
+}
+
+/**
+ * Connects to a detected browser wallet extension.
+ * Defaults to the first injected extension (e.g. Sapient).
+ */
+export async function connectExtension(
+  selectedProvider?: TariExtensionProvider
+): Promise<ConnectedWallet> {
+  const extensions = getInjectedExtensions();
+  const provider = selectedProvider || (extensions.length > 0 ? extensions[0].provider : null);
+
+  if (!provider) {
     throw new Error(
-      "Sapient wallet extension not detected. Please install the extension or use the local wallet daemon."
+      "No Tari browser extension detected. Please install Sapient or another compatible Tari extension, or connect via local wallet daemon."
     );
   }
 
-  const tari = (window as unknown as { tari: any }).tari;
-
+  const walletName = provider.name || (provider.isSapient ? "Sapient" : "Tari Extension");
   let address: string | null = null;
-  let publicKey: Uint8Array | undefined = undefined;
 
   try {
-    if (typeof tari.request === "function") {
-      const accounts: string[] = await tari.request({ method: "tari_requestAccounts" });
-      if (accounts && accounts.length > 0) {
+    if (typeof provider.request === "function") {
+      const accounts = await provider.request({ method: "tari_requestAccounts" });
+      if (Array.isArray(accounts) && accounts.length > 0) {
         address = accounts[0];
+      } else if (typeof accounts === "string") {
+        address = accounts;
       }
-    } else if (typeof tari.connect === "function") {
-      const res = await tari.connect();
+    }
+    if (!address && typeof provider.connect === "function") {
+      const res = await provider.connect();
       address = res?.address || (res?.accounts && res.accounts[0]) || null;
-    } else if (typeof tari.getAccount === "function") {
-      address = await tari.getAccount();
-    } else if (typeof tari.getAddress === "function") {
-      address = await tari.getAddress();
+    }
+    if (!address && typeof provider.getAccount === "function") {
+      address = await provider.getAccount();
+    }
+    if (!address && typeof provider.getAddress === "function") {
+      address = await provider.getAddress();
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to connect Sapient extension: ${msg}`);
+    throw new Error(`Failed to connect ${walletName}: ${msg}`);
   }
 
   if (!address) {
-    throw new Error("No account address returned from Sapient wallet.");
-  }
-
-  // Create or wrap signer
-  let signer: Signer;
-  if (typeof tari.signTransaction === "function" && typeof tari.getPublicKey === "function") {
-    signer = tari as Signer;
-    try {
-      publicKey = await signer.getPublicKey();
-    } catch {
-      // Ignore if public key cannot be retrieved eagerly
-    }
-  } else {
-    // Custom wrapper around window.tari
-    signer = {
-      getAddress: async () => address!,
-      getPublicKey: async () => {
-        if (publicKey) return publicKey;
-        if (typeof tari.getPublicKey === "function") {
-          return await tari.getPublicKey();
-        }
-        return new Uint8Array(32);
-      },
-      signTransaction: async (unsignedTx, sealPublicKey, authorizers) => {
-        if (typeof tari.signTransaction === "function") {
-          return await tari.signTransaction(unsignedTx, sealPublicKey, authorizers);
-        }
-        if (typeof tari.request === "function") {
-          return await tari.request({
-            method: "tari_signTransaction",
-            params: { unsignedTx, sealPublicKey, authorizers },
-          });
-        }
-        throw new Error("Sapient extension does not support transaction signing.");
-      },
-    };
+    throw new Error(`No account address returned from ${walletName}.`);
   }
 
   return {
     address,
-    type: "sapient",
-    signer,
-    publicKey,
+    type: "extension",
+    walletName,
+    provider,
   };
+}
+
+/**
+ * Alias for connectExtension for backwards compatibility.
+ */
+export async function connectSapientExtension(): Promise<ConnectedWallet> {
+  return connectExtension();
 }
 
 /**
@@ -126,6 +177,7 @@ export async function connectWalletDaemon(
     return {
       address,
       type: "daemon",
+      walletName: "Wallet Daemon",
       signer,
       publicKey,
     };

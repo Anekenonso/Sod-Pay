@@ -10,11 +10,11 @@ import { TariSodClient } from "./types";
 import { APP_CONFIG } from "../constants";
 import { logAction } from "./logger";
 import { waitForCommitted } from "./finality";
+import type { ActiveWalletSession } from "./client";
 
 async function loadOotleSdk() {
   const ootle = await import("@tari-project/ootle");
   const indexer = await import("@tari-project/ootle-indexer");
-  const daemon = await import("@tari-project/ootle-wallet-daemon-signer");
   return {
     TransactionBuilder: ootle.TransactionBuilder,
     Network: ootle.Network,
@@ -27,7 +27,6 @@ async function loadOotleSdk() {
     decodeExecuteResult: ootle.decodeExecuteResult,
     decodeTransactionReceipt: ootle.decodeTransactionReceipt,
     ProviderBuilder: indexer.ProviderBuilder,
-    WalletDaemonSigner: daemon.WalletDaemonSigner,
   };
 }
 
@@ -141,6 +140,7 @@ function parseStatus(rawStatus: unknown): Sod["status"] {
 export class RealTariSodClient implements TariSodClient {
   public readonly mode = "REAL";
   private providerPromise: Promise<IndexerProvider> | null = null;
+  private activeSession: ActiveWalletSession | null = null;
   private activeSigner: Signer | null = null;
 
   constructor(
@@ -151,8 +151,27 @@ export class RealTariSodClient implements TariSodClient {
     private defaultMaxEpoch: number = 1000000
   ) {}
 
+  public setActiveSession(session: ActiveWalletSession | null): void {
+    this.activeSession = session;
+    this.activeSigner = session?.signer || null;
+  }
+
+  public getActiveSession(): ActiveWalletSession | null {
+    return this.activeSession;
+  }
+
   public setSigner(signer: Signer | null): void {
     this.activeSigner = signer;
+    if (signer) {
+      this.activeSession = {
+        address: "",
+        type: "daemon",
+        walletName: "Daemon",
+        signer,
+      };
+    } else {
+      this.activeSession = null;
+    }
   }
 
   public getActiveSigner(): Signer | null {
@@ -161,7 +180,7 @@ export class RealTariSodClient implements TariSodClient {
 
   private async getProvider(): Promise<IndexerProvider> {
     if (!this.providerPromise) {
-      const { ProviderBuilder, Network } = await loadOotleSdk();
+      const { ProviderBuilder, Network } = await this.loadSdk();
       const network = this.networkName === "mainnet" ? Network.MainNet : Network.LocalNet;
       this.providerPromise = ProviderBuilder.new()
         .withNetwork(network)
@@ -171,30 +190,125 @@ export class RealTariSodClient implements TariSodClient {
     return this.providerPromise;
   }
 
-  private async getSigner(): Promise<Signer> {
-    if (this.activeSigner) {
-      return this.activeSigner;
-    }
-    // Attempt fallback to local wallet daemon
-    const { WalletDaemonSigner } = await loadOotleSdk();
-    try {
-      return await WalletDaemonSigner.connect({
-        url: this.walletDaemonUrl,
-        authToken: process.env.NEXT_PUBLIC_WALLET_DAEMON_AUTH_TOKEN || undefined,
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(
-        `No wallet signer connected. Connect Sapient extension or start local wallet daemon at ${this.walletDaemonUrl}: ${msg}`
-      );
-    }
+  protected async loadSdk() {
+    return loadOotleSdk();
   }
 
   private async createTxBuilder() {
-    const { TransactionBuilder, Network, sendTransaction } = await loadOotleSdk();
-    const network = this.networkName === "mainnet" ? Network.MainNet : Network.LocalNet;
-    const builder = new TransactionBuilder(network, this.defaultMaxEpoch);
-    return { builder, sendTransaction };
+    const sdk = await this.loadSdk();
+    const network = this.networkName === "mainnet" ? sdk.Network.MainNet : sdk.Network.LocalNet;
+    const builder = new sdk.TransactionBuilder(network, this.defaultMaxEpoch);
+    return { builder, sendTransaction: sdk.sendTransaction };
+  }
+
+  /**
+   * Executes a transaction using ONLY the connected wallet session.
+   * If session is an extension (Sapient or compatible): uses tari_signAndSubmitTransaction.
+   * If session is daemon: uses daemon signer via sendTransaction.
+   * Never silently falls back to daemon when an extension is connected.
+   */
+  private async executeTransaction(
+    builder: any
+  ): Promise<{ txId: string; res: unknown }> {
+    if (!this.activeSession || !this.activeSession.type) {
+      throw new Error(
+        "No wallet connected. Please connect your browser extension or local daemon to sign this transaction."
+      );
+    }
+
+    if (this.activeSession.type === "manual") {
+      throw new Error(
+        "Connected manual address is view-only. Please connect a browser extension or wallet daemon to sign transactions."
+      );
+    }
+
+    // 1. Browser extension session (Sapient or any injected Tari provider)
+    if (this.activeSession.type === "extension" || this.activeSession.type === "sapient") {
+      const provider = this.activeSession.provider;
+      if (!provider) {
+        throw new Error(
+          "Connected extension session is missing the injected provider. Please reconnect your extension."
+        );
+      }
+
+      const unsignedTx = builder.buildUnsignedTransaction();
+      const instructions = unsignedTx.instructions;
+
+      const params: {
+        instructions: unknown[];
+        maxFee?: string;
+        dryRun?: boolean;
+        inputs?: unknown[];
+      } = {
+        instructions,
+        maxFee: "2000",
+        dryRun: false,
+        inputs: unsignedTx.inputs && unsignedTx.inputs.length > 0 ? unsignedTx.inputs : undefined,
+      };
+
+      let res: any;
+      if (typeof provider.request === "function") {
+        try {
+          res = await provider.request({
+            method: "tari_signAndSubmitTransaction",
+            params,
+          });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          throw new Error(`Extension rejected or failed to sign and submit: ${msg}`);
+        }
+      } else if (typeof provider.signAndSubmitTransaction === "function") {
+        try {
+          res = await provider.signAndSubmitTransaction(params);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          throw new Error(`Extension rejected or failed to sign and submit: ${msg}`);
+        }
+      } else {
+        throw new Error(
+          `${this.activeSession.walletName || "Connected extension"} does not support tari_signAndSubmitTransaction.`
+        );
+      }
+
+      let txId: string;
+      if (typeof res === "string") {
+        txId = res;
+      } else if (res && typeof res === "object") {
+        txId =
+          (res as any).transaction_id ||
+          (res as any).tx_id ||
+          (res as any).transactionId ||
+          (res as any).id ||
+          `tx_${Date.now()}`;
+      } else {
+        txId = `tx_${Date.now()}`;
+      }
+
+      return { txId, res };
+    }
+
+    // 2. Local daemon session (User explicitly selected daemon)
+    if (this.activeSession.type === "daemon") {
+      let signer = this.activeSession.signer;
+      if (!signer) {
+        const { WalletDaemonSigner } = await import("@tari-project/ootle-wallet-daemon-signer");
+        signer = await WalletDaemonSigner.connect({
+          url: this.walletDaemonUrl,
+          authToken: process.env.NEXT_PUBLIC_WALLET_DAEMON_AUTH_TOKEN || undefined,
+        });
+        this.activeSession.signer = signer;
+      }
+
+      const provider = await this.getProvider();
+      const { sendTransaction } = await this.createTxBuilder();
+      const unsignedTx = builder.buildUnsignedTransaction();
+
+      const res = await sendTransaction(provider, signer, unsignedTx);
+      const txId = (res as { transaction_id?: string }).transaction_id || `tx_${Date.now()}`;
+      return { txId, res };
+    }
+
+    throw new Error(`Unsupported wallet session type: ${this.activeSession.type}`);
   }
 
   async createSod(
@@ -202,10 +316,8 @@ export class RealTariSodClient implements TariSodClient {
     signerAddress: string
   ): Promise<{ sod: Sod; claimBadgeId: string; txId: string }> {
     try {
-      const provider = await this.getProvider();
-      const signer = await this.getSigner();
-      const { builder, sendTransaction } = await this.createTxBuilder();
-      const sdk = await loadOotleSdk();
+      const { builder } = await this.createTxBuilder();
+      const sdk = await this.loadSdk();
 
       const args: NamedArg[] = [];
       if (input.amount) {
@@ -235,20 +347,60 @@ export class RealTariSodClient implements TariSodClient {
         args
       );
 
-      const unsignedTx = builder.buildUnsignedTransaction();
-      const res = await sendTransaction(provider, signer, unsignedTx);
-
-      const txId = (res as { transaction_id?: string }).transaction_id || `tx_${Date.now()}`;
+      const { txId, res } = await this.executeTransaction(builder);
 
       // Extract real component address and badge resource from chain transaction result
-      const { componentAddress, claimBadgeResource } = extractComponentAndBadgeFromTxResult(
+      let { componentAddress, claimBadgeResource } = extractComponentAndBadgeFromTxResult(
         res,
         sdk.decodeExecuteResult
       );
 
-      // Must be real component address on chain
-      const sodId = componentAddress || `component_${txId.replace(/^tx_/, "").slice(0, 32)}`;
-      const claimBadgeId = claimBadgeResource || `resource_${txId.replace(/^tx_/, "").slice(0, 32)}`;
+      // If not immediately available in extension submit result, query indexer for finalized receipt
+      if (!componentAddress && txId && !txId.startsWith("tx_mock") && !txId.startsWith("tx_")) {
+        try {
+          const indexerProvider = await this.getProvider();
+          const txResult = await indexerProvider.getTransactionResult(txId);
+          const fromIndexer = extractComponentAndBadgeFromTxResult(
+            txResult,
+            sdk.decodeExecuteResult
+          );
+          if (fromIndexer.componentAddress) componentAddress = fromIndexer.componentAddress;
+          if (fromIndexer.claimBadgeResource) claimBadgeResource = fromIndexer.claimBadgeResource;
+        } catch {
+          // Indexer fetch may fail if not yet indexed
+        }
+      }
+
+      // Check if transaction was rejected/aborted on chain
+      if (res && typeof res === "object") {
+        const anyRes = res as any;
+        if (anyRes.result && (anyRes.result.Reject || anyRes.result.Abort)) {
+          const reason = JSON.stringify(anyRes.result.Reject || anyRes.result.Abort);
+          throw new Error(`Transaction aborted on chain: ${reason}`);
+        }
+      }
+
+      if (!componentAddress) {
+        if (typeof res === "object" && res !== null) {
+          const jsonStr = JSON.stringify(res);
+          const compMatch = jsonStr.match(/component_[0-9a-fA-F]{64}/);
+          if (compMatch) componentAddress = compMatch[0];
+          const badgeMatch = jsonStr.match(/resource_[0-9a-fA-F]{64}/);
+          if (badgeMatch) claimBadgeResource = badgeMatch[0];
+        }
+      }
+
+      // Real component address required on chain (P0 requirement)
+      const sodId =
+        componentAddress || (txId.startsWith("tx_mock") ? `component_mock_${Date.now()}` : null);
+      if (!sodId) {
+        throw new Error(
+          `Transaction submitted (${txId}), but could not resolve on-chain component address. Please verify on indexer.`
+        );
+      }
+
+      const claimBadgeId =
+        claimBadgeResource || `resource_${txId.replace(/^tx_/, "").slice(0, 32)}`;
 
       // Cache known component address for creator session listing
       if (typeof window !== "undefined") {
@@ -323,10 +475,8 @@ export class RealTariSodClient implements TariSodClient {
         }
       }
 
-      const provider = await this.getProvider();
-      const signer = await this.getSigner();
-      const { builder, sendTransaction } = await this.createTxBuilder();
-      const sdk = await loadOotleSdk();
+      const { builder } = await this.createTxBuilder();
+      const sdk = await this.loadSdk();
 
       const parsedAmount = BigInt(Math.floor(parseFloat(amount)));
 
@@ -359,9 +509,7 @@ export class RealTariSodClient implements TariSodClient {
           [{ Workspace: "payment_bucket" }]
         );
 
-      const unsignedTx = builder.buildUnsignedTransaction();
-      const res = await sendTransaction(provider, signer, unsignedTx);
-      const txId = (res as { transaction_id?: string }).transaction_id || `tx_${Date.now()}`;
+      const { txId } = await this.executeTransaction(builder);
 
       const updatedSod = await waitForCommitted(async () => {
         return this.getSod(sodId);
@@ -415,9 +563,7 @@ export class RealTariSodClient implements TariSodClient {
       throw new Error("Cannot claim: funds are not Paid");
     }
 
-    const provider = await this.getProvider();
-    const signer = await this.getSigner();
-    const { builder, sendTransaction } = await this.createTxBuilder();
+    const { builder } = await this.createTxBuilder();
 
     try {
       builder.feeTransactionPayFromComponent(claimantAddress, BigInt(1000));
@@ -431,7 +577,7 @@ export class RealTariSodClient implements TariSodClient {
         builder
           .createProof(claimantAddress, currentSod.claimAuthority)
           .saveVar("badge_proof")
-          .withAuthorizedProof("badge_proof", (b) => {
+          .withAuthorizedProof("badge_proof", (b: any) => {
             b.callMethod(
               {
                 componentAddress: sodId,
@@ -460,9 +606,7 @@ export class RealTariSodClient implements TariSodClient {
       );
     }
 
-    const unsignedTx = builder.buildUnsignedTransaction();
-    const res = await sendTransaction(provider, signer, unsignedTx);
-    const txId = (res as { transaction_id?: string }).transaction_id || `tx_${Date.now()}`;
+    const { txId } = await this.executeTransaction(builder);
 
     const updatedSod = await waitForCommitted(async () => {
       return this.getSod(sodId);
@@ -502,9 +646,7 @@ export class RealTariSodClient implements TariSodClient {
       }
     }
 
-    const provider = await this.getProvider();
-    const signer = await this.getSigner();
-    const { builder, sendTransaction } = await this.createTxBuilder();
+    const { builder } = await this.createTxBuilder();
 
     try {
       builder.feeTransactionPayFromComponent(callerAddress, BigInt(1000));
@@ -520,9 +662,7 @@ export class RealTariSodClient implements TariSodClient {
       []
     );
 
-    const unsignedTx = builder.buildUnsignedTransaction();
-    const res = await sendTransaction(provider, signer, unsignedTx);
-    const txId = (res as { transaction_id?: string }).transaction_id || `tx_${Date.now()}`;
+    const { txId } = await this.executeTransaction(builder);
 
     const updatedSod = await waitForCommitted(async () => {
       return this.getSod(sodId);
@@ -552,9 +692,7 @@ export class RealTariSodClient implements TariSodClient {
     sodId: string,
     callerAddress: string
   ): Promise<{ sod: Sod; txId: string }> {
-    const provider = await this.getProvider();
-    const signer = await this.getSigner();
-    const { builder, sendTransaction } = await this.createTxBuilder();
+    const { builder } = await this.createTxBuilder();
 
     try {
       builder.feeTransactionPayFromComponent(callerAddress, BigInt(1000));
@@ -570,9 +708,7 @@ export class RealTariSodClient implements TariSodClient {
       []
     );
 
-    const unsignedTx = builder.buildUnsignedTransaction();
-    const res = await sendTransaction(provider, signer, unsignedTx);
-    const txId = (res as { transaction_id?: string }).transaction_id || `tx_${Date.now()}`;
+    const { txId } = await this.executeTransaction(builder);
 
     const updatedSod = await waitForCommitted(async () => {
       return this.getSod(sodId);
@@ -585,9 +721,7 @@ export class RealTariSodClient implements TariSodClient {
     sodId: string,
     callerAddress: string
   ): Promise<{ sod: Sod; txId: string }> {
-    const provider = await this.getProvider();
-    const signer = await this.getSigner();
-    const { builder, sendTransaction } = await this.createTxBuilder();
+    const { builder } = await this.createTxBuilder();
 
     try {
       builder.feeTransactionPayFromComponent(callerAddress, BigInt(1000));
@@ -603,9 +737,7 @@ export class RealTariSodClient implements TariSodClient {
       []
     );
 
-    const unsignedTx = builder.buildUnsignedTransaction();
-    const res = await sendTransaction(provider, signer, unsignedTx);
-    const txId = (res as { transaction_id?: string }).transaction_id || `tx_${Date.now()}`;
+    const { txId } = await this.executeTransaction(builder);
 
     const updatedSod = await waitForCommitted(async () => {
       return this.getSod(sodId);
@@ -681,9 +813,6 @@ export class RealTariSodClient implements TariSodClient {
       }
 
       // On-chain resolution: Verify each component address directly against the on-chain substate.
-      // Indexer discovery limitation: The Tari indexer does not currently support filtering components
-      // by arbitrary internal struct fields (creator public key). Resolving known component addresses
-      // on-chain ensures that every listed item is an authentic on-chain Sod.
       const sods: Sod[] = [];
       const uniqueIds = Array.from(new Set(knownIds));
 

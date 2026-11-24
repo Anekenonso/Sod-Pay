@@ -2,25 +2,57 @@ import type { Signer } from "@tari-project/ootle";
 import { TariSodClient } from "./types";
 import { RealTariSodClient } from "./real";
 import { APP_CONFIG } from "../constants";
+import type { WalletType, TariExtensionProvider } from "./wallet";
+
+export interface ActiveWalletSession {
+  address: string;
+  type: WalletType;
+  walletName?: string;
+  signer?: Signer | null;
+  provider?: TariExtensionProvider | null;
+}
 
 let cachedRealClient: RealTariSodClient | null = null;
-let currentGlobalSigner: Signer | null = null;
+let currentActiveSession: ActiveWalletSession | null = null;
 
 /**
- * Sets the active signer instance on the global client.
+ * Sets the active wallet session on the global client.
  */
-export function setGlobalSigner(signer: Signer | null) {
-  currentGlobalSigner = signer;
+export function setActiveWalletSession(session: ActiveWalletSession | null) {
+  currentActiveSession = session;
   if (cachedRealClient) {
-    cachedRealClient.setSigner(signer);
+    cachedRealClient.setActiveSession(session);
   }
 }
 
 /**
- * Gets the current active signer instance, if any.
+ * Gets the active wallet session, if any.
+ */
+export function getActiveWalletSession(): ActiveWalletSession | null {
+  return currentActiveSession;
+}
+
+/**
+ * Sets the active signer instance on the global client (daemon / compatibility).
+ */
+export function setGlobalSigner(signer: Signer | null) {
+  if (signer) {
+    setActiveWalletSession({
+      address: "",
+      type: "daemon",
+      walletName: "Daemon",
+      signer,
+    });
+  } else {
+    setActiveWalletSession(null);
+  }
+}
+
+/**
+ * Gets the current active signer instance, if any (daemon / compatibility).
  */
 export function getGlobalSigner(): Signer | null {
-  return currentGlobalSigner;
+  return currentActiveSession?.signer || null;
 }
 
 /**
@@ -29,8 +61,8 @@ export function getGlobalSigner(): Signer | null {
 export function getRealClient(): RealTariSodClient {
   if (!cachedRealClient) {
     cachedRealClient = new RealTariSodClient();
-    if (currentGlobalSigner) {
-      cachedRealClient.setSigner(currentGlobalSigner);
+    if (currentActiveSession) {
+      cachedRealClient.setActiveSession(currentActiveSession);
     }
   }
   return cachedRealClient;
