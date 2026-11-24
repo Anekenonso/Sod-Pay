@@ -7,8 +7,10 @@ import { Sod } from "@/lib/sod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
+import { useToast } from "@/components/ui/Toast";
 import { MICROCOPY } from "@/lib/constants";
 import { useWallet } from "@/components/wallet/WalletContext";
+import { formatFriendlyError } from "@/lib/errors";
 
 interface PayViewProps {
   id: string;
@@ -16,7 +18,8 @@ interface PayViewProps {
 
 export function PayView({ id }: PayViewProps) {
   const client = useTariClient();
-  const { address: userAddress, promptConnect } = useWallet();
+  const { toast } = useToast();
+  const { address: userAddress, walletType, promptConnect } = useWallet();
   const [sod, setSod] = useState<Sod | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -78,9 +81,15 @@ export function PayView({ id }: PayViewProps) {
       setSod(res.sod);
       setPaidTxId(res.txId);
       setIsPaidSuccess(true);
+      toast("Payment completed successfully!", "success");
     } catch (err: unknown) {
-      if (err instanceof Error) setError(err.message);
-      else setError("Payment failed");
+      const formatted = formatFriendlyError(err, {
+        action: "pay",
+        walletType,
+        detail: err,
+      });
+      setError(formatted.userMessage);
+      toast(formatted.userMessage, { type: "error", detail: formatted.rawMessage });
     } finally {
       setIsPaying(false);
     }

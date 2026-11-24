@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { MICROCOPY } from "@/lib/constants";
+import { formatFriendlyError } from "@/lib/errors";
 
 export interface CreateSodFormData {
   amount: string;
@@ -50,11 +51,8 @@ export function CreateForm({ onSubmit, isLoading = false, error = null }: Create
         expiryEpoch,
       });
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setValidationError(err.message);
-      } else {
-        setValidationError("Failed to create Sod");
-      }
+      const formatted = formatFriendlyError(err, { action: "createSod" });
+      setValidationError(formatted.userMessage);
     }
   };
 

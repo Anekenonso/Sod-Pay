@@ -20,6 +20,12 @@ describe("P1 - Branding and Homepage Polish", () => {
   });
 
   it("verifies Navbar does not show a persistent Connect Wallet button when disconnected", () => {
+    const navbarFile = fs.readFileSync(
+      path.resolve(__dirname, "../components/layout/Navbar.tsx"),
+      "utf-8"
+    );
+    expect(navbarFile).not.toContain("<ConnectButton");
+
     const connectButtonFile = fs.readFileSync(
       path.resolve(__dirname, "../components/wallet/ConnectButton.tsx"),
       "utf-8"

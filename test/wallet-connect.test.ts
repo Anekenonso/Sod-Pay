@@ -86,7 +86,7 @@ describe("P0 - Wallet connection and Signer session (v3)", () => {
       if (method === "tari_signAndSubmitTransaction") {
         expect(params).toBeDefined();
         expect(params.instructions).toEqual(mockInstructions);
-        expect(params.maxFee).toBe("2000");
+        expect(params.maxFee).toBe("100000");
         return {
           transaction_id: "tx_mock_12345",
           result: {

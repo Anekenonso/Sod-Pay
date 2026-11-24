@@ -5,12 +5,15 @@ import Link from "next/link";
 import { CreateForm, CreateSodFormData } from "@/components/sod/CreateForm";
 import { SharePanel } from "@/components/sod/SharePanel";
 import { useWallet } from "@/components/wallet/WalletContext";
+import { useToast } from "@/components/ui/Toast";
+import { formatFriendlyError } from "@/lib/errors";
 import { useTariClient } from "@/lib/tari/provider";
 import { Sod } from "@/lib/sod";
 
 export default function CreateSodPage() {
   const client = useTariClient();
-  const { address: userAddress, isConnected, promptConnect, disconnect } = useWallet();
+  const { toast } = useToast();
+  const { address: userAddress, walletType, isConnected, promptConnect, disconnect } = useWallet();
   const [createdSod, setCreatedSod] = useState<Sod | null>(null);
   const [claimBadgeId, setClaimBadgeId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,12 +33,15 @@ export default function CreateSodPage() {
       );
       setCreatedSod(res.sod);
       setClaimBadgeId(res.claimBadgeId);
+      toast("Sod created successfully!", "success");
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to create Sod");
-      }
+      const formatted = formatFriendlyError(err, {
+        action: "createSod",
+        walletType,
+        detail: err,
+      });
+      setError(formatted.userMessage);
+      toast(formatted.userMessage, { type: "error", detail: formatted.rawMessage });
     } finally {
       setIsLoading(false);
     }

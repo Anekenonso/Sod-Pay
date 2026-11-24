@@ -7,7 +7,7 @@ import type { IndexerProvider } from "@tari-project/ootle-indexer";
 import type { WalletDaemonSigner } from "@tari-project/ootle-wallet-daemon-signer";
 import { Sod, CreateSodInput, canCancel } from "../sod";
 import { TariSodClient } from "./types";
-import { APP_CONFIG } from "../constants";
+import { APP_CONFIG, FEES } from "../constants";
 import { logAction } from "./logger";
 import { waitForCommitted } from "./finality";
 import type { ActiveWalletSession } from "./client";
@@ -208,7 +208,8 @@ export class RealTariSodClient implements TariSodClient {
    * Never silently falls back to daemon when an extension is connected.
    */
   private async executeTransaction(
-    builder: any
+    builder: any,
+    maxFee: string = FEES.CREATE_MAX_FEE
   ): Promise<{ txId: string; res: unknown }> {
     if (!this.activeSession || !this.activeSession.type) {
       throw new Error(
@@ -236,15 +237,18 @@ export class RealTariSodClient implements TariSodClient {
 
       const params: {
         instructions: unknown[];
-        maxFee?: string;
+        maxFee: string;
         dryRun?: boolean;
         inputs?: unknown[];
       } = {
         instructions,
-        maxFee: "2000",
+        maxFee,
         dryRun: false,
-        inputs: unsignedTx.inputs && unsignedTx.inputs.length > 0 ? unsignedTx.inputs : undefined,
       };
+
+      if (Array.isArray(unsignedTx.inputs) && unsignedTx.inputs.length > 0) {
+        params.inputs = unsignedTx.inputs;
+      }
 
       let res: any;
       if (typeof provider.request === "function") {
@@ -334,7 +338,7 @@ export class RealTariSodClient implements TariSodClient {
 
       // Add fee instruction paying from creator's account
       try {
-        builder.feeTransactionPayFromComponent(signerAddress, BigInt(1000));
+        builder.feeTransactionPayFromComponent(signerAddress, BigInt(FEES.CREATE_MAX_FEE));
       } catch {
         // If feeTransactionPayFromComponent fails due to address format, proceed with function call
       }
@@ -347,7 +351,7 @@ export class RealTariSodClient implements TariSodClient {
         args
       );
 
-      const { txId, res } = await this.executeTransaction(builder);
+      const { txId, res } = await this.executeTransaction(builder, FEES.CREATE_MAX_FEE);
 
       // Extract real component address and badge resource from chain transaction result
       let { componentAddress, claimBadgeResource } = extractComponentAndBadgeFromTxResult(
@@ -482,7 +486,7 @@ export class RealTariSodClient implements TariSodClient {
 
       // 1. Fee payment from payer account
       try {
-        builder.feeTransactionPayFromComponent(payerAddress, BigInt(1000));
+        builder.feeTransactionPayFromComponent(payerAddress, BigInt(FEES.PAY_MAX_FEE));
       } catch {
         // Proceed if fee pay not applicable
       }
@@ -509,7 +513,7 @@ export class RealTariSodClient implements TariSodClient {
           [{ Workspace: "payment_bucket" }]
         );
 
-      const { txId } = await this.executeTransaction(builder);
+      const { txId } = await this.executeTransaction(builder, FEES.PAY_MAX_FEE);
 
       const updatedSod = await waitForCommitted(async () => {
         return this.getSod(sodId);
@@ -566,7 +570,7 @@ export class RealTariSodClient implements TariSodClient {
     const { builder } = await this.createTxBuilder();
 
     try {
-      builder.feeTransactionPayFromComponent(claimantAddress, BigInt(1000));
+      builder.feeTransactionPayFromComponent(claimantAddress, BigInt(FEES.CLAIM_MAX_FEE));
     } catch {
       // Proceed
     }
@@ -606,7 +610,7 @@ export class RealTariSodClient implements TariSodClient {
       );
     }
 
-    const { txId } = await this.executeTransaction(builder);
+    const { txId } = await this.executeTransaction(builder, FEES.CLAIM_MAX_FEE);
 
     const updatedSod = await waitForCommitted(async () => {
       return this.getSod(sodId);
@@ -649,7 +653,7 @@ export class RealTariSodClient implements TariSodClient {
     const { builder } = await this.createTxBuilder();
 
     try {
-      builder.feeTransactionPayFromComponent(callerAddress, BigInt(1000));
+      builder.feeTransactionPayFromComponent(callerAddress, BigInt(FEES.CANCEL_MAX_FEE));
     } catch {
       // Proceed
     }
@@ -662,7 +666,7 @@ export class RealTariSodClient implements TariSodClient {
       []
     );
 
-    const { txId } = await this.executeTransaction(builder);
+    const { txId } = await this.executeTransaction(builder, FEES.CANCEL_MAX_FEE);
 
     const updatedSod = await waitForCommitted(async () => {
       return this.getSod(sodId);
@@ -695,7 +699,7 @@ export class RealTariSodClient implements TariSodClient {
     const { builder } = await this.createTxBuilder();
 
     try {
-      builder.feeTransactionPayFromComponent(callerAddress, BigInt(1000));
+      builder.feeTransactionPayFromComponent(callerAddress, BigInt(FEES.REVEAL_MAX_FEE));
     } catch {
       // Proceed
     }
@@ -708,7 +712,7 @@ export class RealTariSodClient implements TariSodClient {
       []
     );
 
-    const { txId } = await this.executeTransaction(builder);
+    const { txId } = await this.executeTransaction(builder, FEES.REVEAL_MAX_FEE);
 
     const updatedSod = await waitForCommitted(async () => {
       return this.getSod(sodId);
@@ -724,7 +728,7 @@ export class RealTariSodClient implements TariSodClient {
     const { builder } = await this.createTxBuilder();
 
     try {
-      builder.feeTransactionPayFromComponent(callerAddress, BigInt(1000));
+      builder.feeTransactionPayFromComponent(callerAddress, BigInt(FEES.REVEAL_MAX_FEE));
     } catch {
       // Proceed
     }
@@ -737,7 +741,7 @@ export class RealTariSodClient implements TariSodClient {
       []
     );
 
-    const { txId } = await this.executeTransaction(builder);
+    const { txId } = await this.executeTransaction(builder, FEES.REVEAL_MAX_FEE);
 
     const updatedSod = await waitForCommitted(async () => {
       return this.getSod(sodId);

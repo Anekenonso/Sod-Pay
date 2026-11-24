@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Logo } from "@/components/ui/Logo";
-import { ConnectButton } from "@/components/wallet/ConnectButton";
 import { MobileMenu } from "./MobileMenu";
 
 export function Navbar() {
@@ -53,7 +52,6 @@ export function Navbar() {
 
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-3">
-          <ConnectButton />
           <Link href="/app">
             <Button variant="outline" size="sm">
               Open Sod

@@ -30,6 +30,14 @@ export const MICROCOPY = {
   REVEAL_IRREVERSIBLE: "This cannot be undone.",
 } as const;
 
+export const FEES = {
+  CREATE_MAX_FEE: "100000",
+  PAY_MAX_FEE: "100000",
+  CLAIM_MAX_FEE: "100000",
+  CANCEL_MAX_FEE: "50000",
+  REVEAL_MAX_FEE: "50000",
+} as const;
+
 export const APP_CONFIG = {
   DEFAULT_NETWORK: process.env.NEXT_PUBLIC_NETWORK || "mainnet",
   WALLET_DAEMON_URL: process.env.NEXT_PUBLIC_WALLET_DAEMON_URL || "http://127.0.0.1:9000/json_rpc",

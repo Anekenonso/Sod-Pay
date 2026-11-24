@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { MICROCOPY } from "@/lib/constants";
 import { useWallet } from "@/components/wallet/WalletContext";
+import { formatFriendlyError } from "@/lib/errors";
 
 interface SodDetailViewProps {
   id: string;
@@ -17,7 +18,7 @@ interface SodDetailViewProps {
 export function SodDetailView({ id }: SodDetailViewProps) {
   const client = useTariClient();
   const { toast } = useToast();
-  const { address: userAddress, promptConnect } = useWallet();
+  const { address: userAddress, walletType, promptConnect } = useWallet();
   const [sod, setSod] = useState<Sod | null>(null);
   const [holdsBadge, setHoldsBadge] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,9 +80,13 @@ export function SodDetailView({ id }: SodDetailViewProps) {
       setActionSuccess(msg);
       toast(msg, "success");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to claim Sod";
-      setError(msg);
-      toast(msg, "error");
+      const formatted = formatFriendlyError(err, {
+        action: "claim",
+        walletType,
+        detail: err,
+      });
+      setError(formatted.userMessage);
+      toast(formatted.userMessage, { type: "error", detail: formatted.rawMessage });
     } finally {
       setActionLoading(false);
     }
@@ -106,9 +111,13 @@ export function SodDetailView({ id }: SodDetailViewProps) {
       setActionSuccess(msg);
       toast(msg, "info");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to cancel Sod";
-      setError(msg);
-      toast(msg, "error");
+      const formatted = formatFriendlyError(err, {
+        action: "cancel",
+        walletType,
+        detail: err,
+      });
+      setError(formatted.userMessage);
+      toast(formatted.userMessage, { type: "error", detail: formatted.rawMessage });
     } finally {
       setActionLoading(false);
     }
@@ -133,9 +142,13 @@ export function SodDetailView({ id }: SodDetailViewProps) {
       setActionSuccess(msg);
       toast(msg, "info");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to request reveal";
-      setError(msg);
-      toast(msg, "error");
+      const formatted = formatFriendlyError(err, {
+        action: "requestReveal",
+        walletType,
+        detail: err,
+      });
+      setError(formatted.userMessage);
+      toast(formatted.userMessage, { type: "error", detail: formatted.rawMessage });
     } finally {
       setActionLoading(false);
     }
@@ -160,9 +173,13 @@ export function SodDetailView({ id }: SodDetailViewProps) {
       setActionSuccess(msg);
       toast(msg, "success");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to approve reveal";
-      setError(msg);
-      toast(msg, "error");
+      const formatted = formatFriendlyError(err, {
+        action: "approveReveal",
+        walletType,
+        detail: err,
+      });
+      setError(formatted.userMessage);
+      toast(formatted.userMessage, { type: "error", detail: formatted.rawMessage });
     } finally {
       setActionLoading(false);
     }

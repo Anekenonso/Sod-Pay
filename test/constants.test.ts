@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ROUTES, COLORS, MICROCOPY, APP_CONFIG } from "../lib/constants";
+import { ROUTES, COLORS, MICROCOPY, APP_CONFIG, FEES } from "../lib/constants";
 
 describe("constants", () => {
   it("resolves routes correctly", () => {
@@ -20,5 +20,11 @@ describe("constants", () => {
     expect(MICROCOPY.CTA_CREATE).toBe("Create a Sod");
     expect(MICROCOPY.SAFETY_CREATE).toContain("Only you will receive the claim badge");
     expect(MICROCOPY.PAY_PRIVATE).toContain("amount will not be visible");
+  });
+
+  it("exports fee constants raised above 2000 for mainnet WASM metering", () => {
+    expect(Number(FEES.CREATE_MAX_FEE)).toBeGreaterThanOrEqual(100000);
+    expect(Number(FEES.PAY_MAX_FEE)).toBeGreaterThanOrEqual(50000);
+    expect(Number(FEES.CLAIM_MAX_FEE)).toBeGreaterThanOrEqual(50000);
   });
 });
