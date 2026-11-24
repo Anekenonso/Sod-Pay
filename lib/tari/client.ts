@@ -1,8 +1,27 @@
+import type { Signer } from "@tari-project/ootle";
 import { TariSodClient } from "./types";
 import { RealTariSodClient } from "./real";
 import { APP_CONFIG } from "../constants";
 
 let cachedRealClient: RealTariSodClient | null = null;
+let currentGlobalSigner: Signer | null = null;
+
+/**
+ * Sets the active signer instance on the global client.
+ */
+export function setGlobalSigner(signer: Signer | null) {
+  currentGlobalSigner = signer;
+  if (cachedRealClient) {
+    cachedRealClient.setSigner(signer);
+  }
+}
+
+/**
+ * Gets the current active signer instance, if any.
+ */
+export function getGlobalSigner(): Signer | null {
+  return currentGlobalSigner;
+}
 
 /**
  * Returns the singleton real Tari client instance.
@@ -10,6 +29,9 @@ let cachedRealClient: RealTariSodClient | null = null;
 export function getRealClient(): RealTariSodClient {
   if (!cachedRealClient) {
     cachedRealClient = new RealTariSodClient();
+    if (currentGlobalSigner) {
+      cachedRealClient.setSigner(currentGlobalSigner);
+    }
   }
   return cachedRealClient;
 }

@@ -6,63 +6,52 @@ import { useTariClient } from "@/lib/tari/provider";
 import { Sod } from "@/lib/sod";
 import { SodCard } from "@/components/sod/SodCard";
 import { Button } from "@/components/ui/Button";
-import { ConnectPrompt } from "@/components/wallet/ConnectPrompt";
+import { useWallet } from "@/components/wallet/WalletContext";
 import { MICROCOPY } from "@/lib/constants";
 
 export default function MySodsPage() {
   const client = useTariClient();
+  const { address: userAddress, isConnected, promptConnect } = useWallet();
   const [sods, setSods] = useState<Sod[]>([]);
   const [badgeMap, setBadgeMap] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [userAddress, setUserAddress] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("sod_user_address");
-    }
-    return null;
-  });
-  const [showConnectModal, setShowConnectModal] = useState(false);
+  const loadSods = useCallback(
+    async (address: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const list = await client.listSodsByCreator(address);
+        setSods(list);
 
-  const loadSods = useCallback(async (address: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const list = await client.listSodsByCreator(address);
-      setSods(list);
-
-      // Check badge holdings for each Sod
-      const holdings: Record<string, boolean> = {};
-      for (const sod of list) {
-        holdings[sod.id] = await client.userHoldsClaimBadge(sod.id, address);
+        // Check badge holdings on-chain for each Sod
+        const holdings: Record<string, boolean> = {};
+        for (const sod of list) {
+          holdings[sod.id] = await client.userHoldsClaimBadge(sod.id, address);
+        }
+        setBadgeMap(holdings);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("Failed to fetch Sods");
+        }
+      } finally {
+        setIsLoading(false);
       }
-      setBadgeMap(holdings);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Failed to fetch Sods");
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [client]);
+    },
+    [client]
+  );
 
   useEffect(() => {
     if (userAddress) {
       loadSods(userAddress);
     } else {
       setIsLoading(false);
+      setSods([]);
     }
   }, [userAddress, loadSods]);
-
-  const handleWalletConnected = (address: string) => {
-    setUserAddress(address);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sod_user_address", address);
-    }
-    loadSods(address);
-  };
 
   return (
     <main className="min-h-[calc(100vh-8rem)] py-12 px-4 sm:px-6">
@@ -79,7 +68,7 @@ export default function MySodsPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {userAddress ? (
+            {isConnected && userAddress ? (
               <div className="flex items-center gap-2 bg-white border border-[#E5E5E2] px-3 py-1.5 rounded-lg text-xs">
                 <span className="h-2 w-2 rounded-full bg-[#1F7A4D]" />
                 <span className="font-mono text-[#111111]">
@@ -92,7 +81,7 @@ export default function MySodsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowConnectModal(true)}
+                onClick={() => promptConnect("view your Sods")}
               >
                 Connect Wallet
               </Button>
@@ -122,7 +111,7 @@ export default function MySodsPage() {
               Connect your Tari wallet to list your created links.
             </p>
             <div className="mt-6">
-              <Button onClick={() => setShowConnectModal(true)} size="md">
+              <Button onClick={() => promptConnect("view your Sods")} size="md">
                 Connect Wallet
               </Button>
             </div>
@@ -186,13 +175,6 @@ export default function MySodsPage() {
           </div>
         )}
       </div>
-
-      <ConnectPrompt
-        isOpen={showConnectModal}
-        onClose={() => setShowConnectModal(false)}
-        onConnect={handleWalletConnected}
-        actionName="view your Sods"
-      />
     </main>
   );
 }

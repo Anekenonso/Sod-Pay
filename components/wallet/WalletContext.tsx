@@ -1,14 +1,27 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import type { Signer } from "@tari-project/ootle";
 import { APP_CONFIG } from "@/lib/constants";
 import { ConnectPrompt } from "./ConnectPrompt";
+import {
+  WalletType,
+  connectSapientExtension,
+  connectWalletDaemon,
+  isSapientAvailable,
+} from "@/lib/tari/wallet";
+import { setGlobalSigner } from "@/lib/tari/client";
 
 interface WalletContextValue {
   address: string | null;
+  walletType: WalletType | null;
+  signer: Signer | null;
   isConnected: boolean;
   network: string;
-  connect: (address: string) => void;
+  hasExtension: boolean;
+  connectExtension: () => Promise<string>;
+  connectDaemon: (url?: string) => Promise<string>;
+  connectManual: (address: string) => void;
   disconnect: () => void;
   promptConnect: (actionName: string, onConnected?: (address: string) => void) => void;
 }
@@ -17,36 +30,75 @@ const WalletContext = createContext<WalletContextValue | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
+  const [walletType, setWalletType] = useState<WalletType | null>(null);
+  const [signer, setSigner] = useState<Signer | null>(null);
+  const [hasExtension, setHasExtension] = useState(false);
   const [isPromptOpen, setIsPromptOpen] = useState(false);
   const [promptAction, setPromptAction] = useState("continue");
   const [onConnectedCallback, setOnConnectedCallback] = useState<((addr: string) => void) | null>(null);
 
-  // Invariant (R-07, R-09): We do NOT automatically connect wallet on mount/page load.
-  // We only load existing stored address if explicitly previously connected by user.
+  // Check for Sapient extension availability on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("sod_user_address");
-      if (stored) {
-        setAddress(stored);
-      }
+      setHasExtension(isSapientAvailable());
+      // Re-check after window loads in case extension takes a few ms to inject
+      const timer = setTimeout(() => {
+        setHasExtension(isSapientAvailable());
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, []);
 
-  const connect = useCallback((addr: string) => {
-    setAddress(addr);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sod_user_address", addr);
-    }
-    if (onConnectedCallback) {
-      onConnectedCallback(addr);
-      setOnConnectedCallback(null);
-    }
-  }, [onConnectedCallback]);
+  const handleConnected = useCallback(
+    (addr: string, type: WalletType, activeSigner?: Signer) => {
+      setAddress(addr);
+      setWalletType(type);
+      if (activeSigner) {
+        setSigner(activeSigner);
+        setGlobalSigner(activeSigner);
+      }
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sod_user_address", addr);
+        localStorage.setItem("sod_wallet_type", type);
+      }
+      if (onConnectedCallback) {
+        onConnectedCallback(addr);
+        setOnConnectedCallback(null);
+      }
+    },
+    [onConnectedCallback]
+  );
+
+  const connectExtension = useCallback(async (): Promise<string> => {
+    const res = await connectSapientExtension();
+    handleConnected(res.address, "sapient", res.signer);
+    return res.address;
+  }, [handleConnected]);
+
+  const connectDaemon = useCallback(
+    async (url?: string): Promise<string> => {
+      const res = await connectWalletDaemon(url);
+      handleConnected(res.address, "daemon", res.signer);
+      return res.address;
+    },
+    [handleConnected]
+  );
+
+  const connectManual = useCallback(
+    (addr: string) => {
+      handleConnected(addr, "manual");
+    },
+    [handleConnected]
+  );
 
   const disconnect = useCallback(() => {
     setAddress(null);
+    setWalletType(null);
+    setSigner(null);
+    setGlobalSigner(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("sod_user_address");
+      localStorage.removeItem("sod_wallet_type");
     }
   }, []);
 
@@ -62,9 +114,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     <WalletContext.Provider
       value={{
         address,
-        isConnected: !!address,
+        walletType,
+        signer,
+        isConnected: Boolean(address && (signer || walletType)),
         network: APP_CONFIG.DEFAULT_NETWORK,
-        connect,
+        hasExtension,
+        connectExtension,
+        connectDaemon,
+        connectManual,
         disconnect,
         promptConnect,
       }}
@@ -73,7 +130,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       <ConnectPrompt
         isOpen={isPromptOpen}
         onClose={() => setIsPromptOpen(false)}
-        onConnect={connect}
         actionName={promptAction}
       />
     </WalletContext.Provider>

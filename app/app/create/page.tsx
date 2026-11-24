@@ -4,38 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import { CreateForm, CreateSodFormData } from "@/components/sod/CreateForm";
 import { SharePanel } from "@/components/sod/SharePanel";
-import { ConnectPrompt } from "@/components/wallet/ConnectPrompt";
+import { useWallet } from "@/components/wallet/WalletContext";
 import { useTariClient } from "@/lib/tari/provider";
 import { Sod } from "@/lib/sod";
 
 export default function CreateSodPage() {
   const client = useTariClient();
+  const { address: userAddress, isConnected, promptConnect, disconnect } = useWallet();
   const [createdSod, setCreatedSod] = useState<Sod | null>(null);
   const [claimBadgeId, setClaimBadgeId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // User wallet state
-  const [userAddress, setUserAddress] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("sod_user_address");
-    }
-    return null;
-  });
-  const [showConnectModal, setShowConnectModal] = useState(false);
-  const [pendingFormData, setPendingFormData] = useState<CreateSodFormData | null>(null);
-
-  const handleWalletConnected = async (address: string) => {
-    setUserAddress(address);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sod_user_address", address);
-    }
-
-    if (pendingFormData) {
-      await executeCreate(pendingFormData, address);
-      setPendingFormData(null);
-    }
-  };
 
   const executeCreate = async (data: CreateSodFormData, address: string) => {
     setIsLoading(true);
@@ -64,8 +43,9 @@ export default function CreateSodPage() {
 
   const handleCreateSubmit = async (data: CreateSodFormData) => {
     if (!userAddress) {
-      setPendingFormData(data);
-      setShowConnectModal(true);
+      promptConnect("create a Sod", (address) => {
+        executeCreate(data, address);
+      });
       return;
     }
 
@@ -95,7 +75,7 @@ export default function CreateSodPage() {
                 <p className="mt-2 text-sm text-[#5C5C5C]">
                   Generate a private Tari Ootle payment link. Only your claim badge can unlock deposited funds.
                 </p>
-                {userAddress && (
+                {isConnected && userAddress && (
                   <div className="mt-3 flex items-center gap-2 text-xs text-[#5C5C5C]">
                     <span className="h-1.5 w-1.5 rounded-full bg-[#1F7A4D]" />
                     <span>Connected: </span>
@@ -106,12 +86,7 @@ export default function CreateSodPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        setUserAddress(null);
-                        if (typeof window !== "undefined") {
-                          localStorage.removeItem("sod_user_address");
-                        }
-                      }}
+                      onClick={disconnect}
                       className="text-xs text-[#B33A3A] hover:underline ml-2"
                     >
                       Disconnect
@@ -131,13 +106,6 @@ export default function CreateSodPage() {
           )}
         </div>
       </div>
-
-      <ConnectPrompt
-        isOpen={showConnectModal}
-        onClose={() => setShowConnectModal(false)}
-        onConnect={handleWalletConnected}
-        actionName="create a Sod"
-      />
     </main>
   );
 }

@@ -145,7 +145,7 @@ export function CreateForm({ onSubmit, isLoading = false, error = null }: Create
         type="submit"
         disabled={isLoading}
         size="lg"
-        className="w-full text-base font-semibold shadow-sm"
+        className="w-full text-base font-semibold shadow-sm min-h-[48px] justify-center"
       >
         {isLoading ? "Creating…" : MICROCOPY.CTA_CREATE}
       </Button>

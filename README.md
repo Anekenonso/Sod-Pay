@@ -4,163 +4,186 @@
 
 ---
 
-## 1. Links & Resources
+## 1. Title & Overview
 
-- **Live Application:** [https://sod-pay.vercel.app](https://sod-pay.vercel.app) *(or local `http://localhost:3000`)*
-- **GitHub Repository:** [https://github.com/Anekenonso/Sod-Pay](https://github.com/Anekenonso/Sod-Pay)
-- **Deployed Mainnet Template:** [`template_f633483cd1d57317f6d9e104ecb2c5c1a37a8def33abf3784c15207d47fd3855`](https://indexer-a.ootle.tari.com/templates/f633483cd1d57317f6d9e104ecb2c5c1a37a8def33abf3784c15207d47fd3855)
-- **Publish Transaction ID:** `b8e2d6619ecfc4e67149d71c4179504bdd8d5d3dbff44faae0ad81ff34e039a4`
-- **Tari Template Source:** `template/src/lib.rs` (Tari Ootle WASM contract)
-- **Announcement Thread:** [Tari Forum Contest Thread /t/520](https://tari.community)
+**Sod Pay** is a non-custodial Web3 payment link dapp built on Tari Ootle. Payment amounts are locked inside zero-knowledge confidential vaults, shielded from public block explorers. A unique sovereign non-fungible Claim Badge is minted directly to the creator, ensuring that only the rightful recipient can unlock funds. Should an amount need to be verified for accounting or audit, both creator and payer must mutually approve the reveal.
 
 ---
 
-## 2. At a Glance
+## 2. Links & Resources
 
-| Feature | Description |
-| :--- | :--- |
-| **Framework** | Next.js 15 (App Router, React 19, Tailwind CSS, TypeScript, pnpm) |
-| **Smart Contract** | Rust `#[template]` targeting Tari Ootle engine |
-| **Privacy Model** | Amount hidden in confidential vault; mutual approval required for reveal |
-| **Access Control** | Non-fungible Claim Badge minted directly to creator; non-transferable authority |
-| **Cancellation** | Creator only, strictly before payment has been deposited |
-| **Execution Mode** | Direct on-chain Tari Mainnet (`mode: "REAL"`) |
+- **Live Application:** [https://sod-pay.vercel.app](https://sod-pay.vercel.app)
+- **GitHub Repository:** [https://github.com/Anekenonso/Sod-Pay](https://github.com/Anekenonso/Sod-Pay)
+- **Deployed Mainnet Template:** [`template_f633483cd1d57317f6d9e104ecb2c5c1a37a8def33abf3784c15207d47fd3855`](https://indexer-a.ootle.tari.com/templates/f633483cd1d57317f6d9e104ecb2c5c1a37a8def33abf3784c15207d47fd3855)
+- **Publish Transaction ID:** `b8e2d6619ecfc4e67149d71c4179504bdd8d5d3dbff44faae0ad81ff34e039a4`
+- **Tari Template Source:** [`template/src/lib.rs`](template/src/lib.rs) (Tari Ootle WASM contract)
+- **Announcement:** (add before contest post)
+- **Prize address:** (add before contest post)
 
 ---
 
 ## 3. The Idea in One Minute
 
-Typical Web3 payment links expose recipient balances, transaction values, and counterparty wallets publicly on block explorers. Sod Pay solves this on Tari Ootle:
-1. **Creator creates a Sod:** Specifies an optional requested amount and description. A unique non-fungible Claim Badge is minted to the creator's wallet.
-2. **Payer deposits privately:** The payer sends Tari directly into the Sod component's confidential vault. The payment amount remains encrypted.
-3. **Claim with Badge:** Only the holder of the matching Claim Badge can trigger withdrawal of the locked vault.
-4. **Mutual-Only Reveal:** The payment amount remains secret until **both** creator and payer explicitly approve the reveal.
+Standard Web3 payments broadcast transaction amounts, wallet balances, and counterparty relationships to anyone watching the mempool or block explorer. Sod Pay solves this on Tari Ootle:
+
+1. **Create a Sod:** Creator sets an optional expected amount and note. An on-chain `SodPay` component is instantiated, and a single non-fungible Claim Badge is minted to the creator.
+2. **Share the Link:** Creator sends `/pay/<componentAddress>` or displays the QR code. The amount remains hidden from observers.
+3. **Pay Privately:** The payer deposits Tari tokens directly into the component's confidential vault using an Ootle bucket. Status transitions to `Paid`.
+4. **Claim with Badge:** Only the holder presenting the genuine Claim Badge can withdraw funds from the vault.
+5. **Mutual Reveal:** Need proof of payment? Both parties must cryptographically sign to reveal the amount. Neither party can expose it alone.
 
 ---
 
-## 4. Why Sod Pay?
+## 4. Why Sod Pay
 
-- **Confidential Commerce:** Freelancers, merchants, and OTC traders can accept payments without broadcasting deal sizes to competitors or observers.
-- **Badge-Gated Authority:** Funds cannot be siphoned or claimed by unauthorized parties. Only the verifiable Claim Badge unlocks the vault.
-- **Anti-Griefing Invariants:** Creators can safely cancel unpaid links. Once funds are deposited, payments cannot be unilaterally revoked.
-
----
-
-## 5. Product Tour (Routes)
-
-- `/` — Homepage: Project value propositions, privacy architecture explanation, and FAQ. No wallet connection prompt.
-- `/app` — My Sods: Dashboard listing payment links created by the connected wallet, with real-time status badges.
-- `/app/create` — Create Sod: Form to issue a new private payment link, minting the associated Claim Badge.
-- `/app/s/[id]` — Sod Detail: Shareable links, QR code, claim actions, and mutual reveal approvals.
-- `/pay/[id]` — Pay Page: Dedicated payment interface for payers supporting both fixed and open-amount payments.
-- `/api/health` — Health check endpoint returning `{ ok: true }`.
+- **Confidential Commerce:** Freelancers, merchants, and OTC desks accept payments without leaking invoice values to competitors.
+- **Badge-Gated Security:** Vault funds cannot be intercepted or diverted. Only the non-fungible Claim Badge unlocks the vault.
+- **Fair Anti-Griefing Invariants:** Creators can cancel unfulfilled links at any time. Once funds are deposited (`Paid`), cancellation is permanently disabled.
+- **Non-Custodial Design:** The app never holds private keys, seed phrases, or user funds. All operations execute directly on Tari Ootle.
 
 ---
 
-## 6. How It Works (Protocol Architecture)
+## 5. Product Tour
+
+- `/` — **Homepage:** Project value propositions, interactive FAQ accordion, scroll reveal animations, and hero CTAs. No wallet connection prompt on visit.
+- `/app` — **My Sods:** Creator dashboard listing authentic on-chain payment links with real-time status and badge ownership detection.
+- `/app/create` — **Create a Sod:** Form to issue a new private payment link, minting the associated Claim Badge on-chain.
+- `/app/s/[id]` — **Sod Detail:** Shareable links, QR code, on-chain claim triggers, cancellation, and mutual reveal approvals.
+- `/pay/[id]` — **Pay Page:** Payer interface supporting fixed-amount verification or payer-chosen open amounts with bucket deposits.
+- `/api/health` — **Health Check:** System health endpoint returning `{ ok: true }`.
+
+---
+
+## 6. How It Works
 
 ```
-[Creator] ---> create() ---> [Sod Component] + [Claim Badge minted to Creator]
-                                  |
-[Payer]   ---> pay(amount)  ---> [Confidential Vault locked]
-                                  |
-[Creator] ---> claim(Badge) ---> [Funds transferred to Creator]
-                                  |
-[Both]    ---> reveal()     ---> [Amount revealed publicly]
+[Creator Wallet] ---> create() ---> [Sod Component] + [Claim Badge minted to Creator]
+                                          |
+[Payer Wallet]   ---> pay(Bucket)  ---> [Confidential Vault locked on-chain]
+                                          |
+[Creator Wallet] ---> claim(Badge) ---> [Funds transferred to Creator Vault]
+                                          |
+[Mutual Consent] ---> reveal()     ---> [Amount revealed publicly]
 ```
 
-1. **Instantiation:** `create(amount, description, expiry)` initializes the component state and issues a single `ClaimBadge` resource into the creator's account.
-2. **Deposit:** `pay()` deposits TARI into the component's internal vault and sets status to `Paid`.
-3. **Claim:** `claim()` requires the caller to present the `ClaimBadge` via Tari access rules (`rule!(resource(badge_addr))`).
-4. **Mutual Reveal:** `request_reveal()` and `approve_reveal()` ensure neither party can expose the amount unilaterally.
+1. **Instantiation:** `create(amount, description, expiry)` deploys the component substate and mints an exclusive non-fungible Claim Badge to the creator.
+2. **Deposit:** `pay(payment: Bucket)` withdraws funds from the payer's account into a workspace bucket and deposits them into the component's confidential vault.
+3. **Claim:** `claim()` requires authorization via the Claim Badge (`rule!(resource(badge_resource))`), withdrawing all vault funds to the claimant.
+4. **Mutual Reveal:** `request_reveal()` and `approve_reveal()` require approvals from two distinct participating parties (creator and payer).
 
 ---
 
 ## 7. Verification & Invariants
 
-The protocol enforces 5 core invariants in both the Rust template (`template/src/lib.rs`) and the client engine:
-1. **Claim Badge Exclusivity:** Vault redemption requires proof of the specific non-fungible badge.
-2. **Mutual Reveal Requirement:** Amount remains private until two distinct cryptographic parties approve.
-3. **Cancel Preconditions:** Cancel succeeds only from `Created` state by the original creator. Calling `cancel` after `pay` aborts immediately.
-4. **Exact Amount Enforcement:** Fixed-amount Sods reject mismatched deposits.
-5. **Expiry Bounds:** Expired Sods reject new deposits and allow creator reclaim.
+The protocol guarantees 5 cryptographic invariants in both the Rust smart contract (`template/src/lib.rs`) and client verification:
+
+1. **Claim Badge Exclusivity:** Vault redemption requires proof of the specific non-fungible badge resource.
+2. **Mutual Reveal Requirement:** Amount remains confidential until two distinct cryptographic parties approve.
+3. **Cancellation Rule:** Cancel succeeds only from `Created` status by the original creator. Calling `cancel` after `pay` aborts immediately.
+4. **Amount Enforcement:** Fixed-amount Sods reject mismatched deposits with clear error diagnostics.
+5. **Expiry Protection:** Expired Sods reject new deposits and allow creator reclaim.
 
 ---
 
-## 8. Network & Execution Mode
+## 8. Network & Execution
 
-Sod Pay operates directly on-chain (`mode: "REAL"`):
-- Connects to the Tari Indexer and Tari Wallet Daemon via `@tari-project/ootle` SDK.
-- Every action (creating links, depositing confidential payments, claiming via badge, requesting/approving reveal, canceling) signs and submits authentic on-chain transactions.
+Sod Pay operates directly on Tari Ootle mainnet (`mode: "REAL"`):
+
+- **Tari Indexer:** Connects via `@tari-project/ootle-indexer` to read substates and verify transaction receipts.
+- **Wallet Signer:** Supports native browser extensions (**Sapient**) and local wallet daemons (**`tari_ootle_walletd`**) via `@tari-project/ootle-wallet-daemon-signer`.
+- **Zero Simulation:** Every creation, deposit, claim, cancellation, and reveal executes real, verifiable on-chain transactions.
 
 ---
 
-## 9. Quickstart
+## 9. At a Glance
+
+| Component | Technology | Detail |
+| :--- | :--- | :--- |
+| **Frontend Framework** | Next.js 15 (App Router) | React 19, Tailwind CSS, TypeScript |
+| **Package Manager** | pnpm | Pinned dependencies |
+| **Smart Contract** | Rust `#[template]` | `tari_template_lib` targeting Tari Ootle engine |
+| **Network** | Tari Ootle Mainnet | Live on-chain execution (`mode: "REAL"`) |
+| **Privacy Model** | Confidential Vault | Amounts shielded until mutual reveal |
+| **Access Control** | Non-Fungible Badge | Sovereign authority minted directly to creator |
+| **Cancellation** | Creator Pre-payment | Restricted strictly to `Created` status |
+| **Signer Support** | Sapient & Wallet Daemon | EVM-style extension or JSON-RPC daemon |
+
+---
+
+## 10. Quickstart
 
 ### Prerequisites
-- Node.js 20+ and `pnpm`
-- Rust 1.80+ with `wasm32-unknown-unknown` target (for template)
 
-### Frontend (Next.js 15)
+- Node.js 20+ and `pnpm`
+- Rust 1.80+ with `wasm32-unknown-unknown` target (for template builds)
+- Tari Wallet: [Sapient Browser Extension](https://ootle.tari.com/guides/setup-a-wallet/) or `tari_ootle_walletd`
+
+### Frontend Setup
+
 ```bash
 # Install dependencies
 pnpm install
 
-# Run unit and integration tests (Vitest)
+# Run test suite
 pnpm test
 
-# Build for production
+# Build production bundle
 pnpm build
 
 # Start local development server
 pnpm dev
 ```
 
-### Smart Contract (Rust Tari Template)
+### Smart Contract Tests
+
 ```bash
 cd template
 
-# Run the 5 on-chain engine tests
+# Run the 5 on-chain domain tests
 cargo test
 ```
 
 ---
 
-## 10. Repository Layout
+## 11. Repository Layout
 
 ```
 .
-├── app/                  # Next.js 15 App Router pages & API routes
+├── app/                  # Next.js 15 App Router pages, layouts, and API routes
 │   ├── api/health/       # System health route
 │   ├── app/              # Dashboard & Create flows
 │   ├── pay/[id]/         # Payer payment view
-│   └── page.tsx          # Homepage
+│   ├── icon.svg          # Favicon branding
+│   ├── icon.tsx          # Dynamic metadata icon generator
+│   └── page.tsx          # Homepage with FAQ accordion and scroll reveals
 ├── components/           # UI and domain components (Tailwind CSS)
-│   ├── demo/             # Demo mode provider and banners
+│   ├── home/             # Homepage FAQ accordion & scroll reveal helpers
 │   ├── layout/           # Navbar, Footer, MobileMenu
 │   ├── sod/              # CreateForm, SodCard, SharePanel
-│   └── wallet/           # Session management and connect prompts
+│   ├── ui/               # Badge, Button, Input, Logo, Toast
+│   └── wallet/           # WalletContext, ConnectPrompt, ConnectButton
 ├── lib/                  # Protocol libraries and SDK adapters
-│   ├── tari/             # Real and Simulated Tari client implementations
-│   ├── constants.ts      # Routes, tokens, microcopy
-│   └── sod.ts            # Domain types and transition flags
+│   ├── tari/             # Real Tari client, finality polling, wallet connectors
+│   ├── constants.ts      # Routes, design tokens, microcopy, config
+│   └── sod.ts            # Domain types and invariant state guards
 ├── template/             # Tari Ootle Rust template
 │   ├── src/lib.rs        # Contract logic and unit test suite
 │   └── Cargo.toml        # tari_template_lib dependency
-├── test/                 # Test suites (Vitest)
+├── test/                 # Vitest test suites
 └── docs/                 # Specifications and task tracking
 ```
 
 ---
 
-## 11. Security & Risks
+## 12. Security & Risks
 
-- **Wallet Daemon Dependency:** Real on-chain operations require Tari Wallet Daemon running locally or an integrated Tari web wallet provider.
-- **WASM Prerendering:** Next.js uses client-side dynamic loading for WebAssembly packages to preserve static server generation.
-- **Indexer Sync:** Substate finality relies on block commitment by validators.
+- **Non-Custodial Architecture:** Sod Pay never handles, persists, or transmits user private keys.
+- **Client Signer Security:** Signing is delegated exclusively to the local Tari Wallet Daemon or Sapient browser extension.
+- **On-Chain Enforcement:** Invariants (access control, mutual reveal, cancellation rules) are enforced by the Tari DAN engine at the consensus level, not solely in client-side code.
+- **Substate Verification:** Substates and component addresses are resolved through the Tari Indexer.
 
 ---
 
-## 12. License
+## 13. License
 
 This project is licensed under the [MIT License](LICENSE).

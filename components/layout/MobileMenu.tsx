@@ -12,33 +12,33 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="md:hidden border-b border-[#E5E5E2] bg-white px-4 pt-2 pb-6 space-y-4 animate-in slide-in-from-top duration-200">
-      <nav className="flex flex-col space-y-3">
+    <div className="md:hidden border-b border-[#E5E5E2] bg-white px-4 pt-3 pb-6 space-y-4 animate-in slide-in-from-top duration-200">
+      <nav className="flex flex-col space-y-1">
         <Link
           href="/"
           onClick={onClose}
-          className="text-base font-medium text-[#111111] hover:text-[#0B1D33]"
+          className="flex items-center min-h-[44px] px-3 rounded-lg text-base font-medium text-[#111111] hover:bg-[#F7F7F5]"
         >
           Home
         </Link>
         <Link
           href="/#how-it-works"
           onClick={onClose}
-          className="text-base font-medium text-[#5C5C5C] hover:text-[#111111]"
+          className="flex items-center min-h-[44px] px-3 rounded-lg text-base font-medium text-[#5C5C5C] hover:bg-[#F7F7F5] hover:text-[#111111]"
         >
           How it works
         </Link>
         <Link
           href="/#faq"
           onClick={onClose}
-          className="text-base font-medium text-[#5C5C5C] hover:text-[#111111]"
+          className="flex items-center min-h-[44px] px-3 rounded-lg text-base font-medium text-[#5C5C5C] hover:bg-[#F7F7F5] hover:text-[#111111]"
         >
           FAQ
         </Link>
         <Link
           href="/app"
           onClick={onClose}
-          className="text-base font-medium text-[#5C5C5C] hover:text-[#111111]"
+          className="flex items-center min-h-[44px] px-3 rounded-lg text-base font-medium text-[#5C5C5C] hover:bg-[#F7F7F5] hover:text-[#111111]"
         >
           My Sods
         </Link>
@@ -47,18 +47,20 @@ export function MobileMenu({ isOpen, onClose }: MobileMenuProps) {
           target="_blank"
           rel="noopener noreferrer"
           onClick={onClose}
-          className="text-base font-medium text-[#5C5C5C] hover:text-[#111111]"
+          className="flex items-center min-h-[44px] px-3 rounded-lg text-base font-medium text-[#5C5C5C] hover:bg-[#F7F7F5] hover:text-[#111111]"
         >
-          GitHub
+          GitHub ↗
         </a>
       </nav>
 
-      <div className="pt-2 flex flex-col gap-2">
+      <div className="pt-2 flex flex-col gap-2.5">
         <Link href="/app/create" onClick={onClose} className="w-full">
-          <Button className="w-full">Create a Sod</Button>
+          <Button size="lg" className="w-full min-h-[44px] justify-center text-sm font-semibold shadow-sm">
+            Create a Sod
+          </Button>
         </Link>
         <Link href="/app" onClick={onClose} className="w-full">
-          <Button variant="outline" className="w-full">
+          <Button variant="outline" size="lg" className="w-full min-h-[44px] justify-center text-sm font-semibold">
             Open Sod
           </Button>
         </Link>

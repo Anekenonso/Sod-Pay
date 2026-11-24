@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="8" fill="#0B1D33"/>
+  <!-- Shield emblem in accent gold #E8C547 -->
+  <path d="M16 6L24 10.5V17.5C24 22 16 25.5 16 25.5C16 25.5 8 22 8 17.5V10.5L16 6Z" fill="#E8C547"/>
+  <!-- Center vault dot in navy #0B1D33 -->
+  <circle cx="16" cy="15.5" r="2.5" fill="#0B1D33"/>
+</svg>

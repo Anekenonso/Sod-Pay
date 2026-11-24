@@ -46,14 +46,14 @@ export function SharePanel({ sod, claimBadgeId }: SharePanelProps) {
         <label className="block text-xs font-bold uppercase tracking-wider text-[#5C5C5C]">
           Private Payment Link
         </label>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <input
             type="text"
             readOnly
             value={payUrl}
-            className="flex-1 rounded-lg border border-[#E5E5E2] bg-white px-3 py-2 text-sm text-[#111111] font-mono select-all focus:outline-none"
+            className="flex-1 rounded-lg border border-[#E5E5E2] bg-white px-3 py-2 text-sm text-[#111111] font-mono select-all focus:outline-none min-w-0 truncate"
           />
-          <Button onClick={handleCopy} size="sm" className="whitespace-nowrap px-4 font-semibold">
+          <Button onClick={handleCopy} size="sm" className="whitespace-nowrap px-4 font-semibold min-h-[40px] justify-center">
             {copied ? "Copied!" : "Copy Link"}
           </Button>
         </div>
@@ -89,13 +89,17 @@ export function SharePanel({ sod, claimBadgeId }: SharePanelProps) {
 
       {/* Summary Metadata */}
       <div className="rounded-xl border border-[#E5E5E2] bg-white p-4 divide-y divide-[#E5E5E2] text-xs">
-        <div className="py-2 flex justify-between">
-          <span className="text-[#5C5C5C]">Component Address:</span>
-          <span className="font-mono text-[#111111] font-medium">{sod.id}</span>
+        <div className="py-2 flex items-center justify-between gap-2">
+          <span className="text-[#5C5C5C] flex-shrink-0">Component:</span>
+          <span className="font-mono text-[#111111] font-medium truncate max-w-[200px] sm:max-w-none text-right" title={sod.id}>
+            {sod.id}
+          </span>
         </div>
-        <div className="py-2 flex justify-between">
-          <span className="text-[#5C5C5C]">Claim Badge ID:</span>
-          <span className="font-mono text-[#111111] font-medium">{claimBadgeId}</span>
+        <div className="py-2 flex items-center justify-between gap-2">
+          <span className="text-[#5C5C5C] flex-shrink-0">Claim Badge:</span>
+          <span className="font-mono text-[#111111] font-medium truncate max-w-[200px] sm:max-w-none text-right" title={claimBadgeId}>
+            {claimBadgeId}
+          </span>
         </div>
         <div className="py-2 flex justify-between">
           <span className="text-[#5C5C5C]">Amount:</span>

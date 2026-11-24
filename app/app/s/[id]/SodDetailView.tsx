@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { MICROCOPY } from "@/lib/constants";
-import { ConnectPrompt } from "@/components/wallet/ConnectPrompt";
+import { useWallet } from "@/components/wallet/WalletContext";
 
 interface SodDetailViewProps {
   id: string;
@@ -17,19 +17,13 @@ interface SodDetailViewProps {
 export function SodDetailView({ id }: SodDetailViewProps) {
   const client = useTariClient();
   const { toast } = useToast();
+  const { address: userAddress, promptConnect } = useWallet();
   const [sod, setSod] = useState<Sod | null>(null);
   const [holdsBadge, setHoldsBadge] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const [userAddress, setUserAddress] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("sod_user_address");
-    }
-    return null;
-  });
-  const [showConnectModal, setShowConnectModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
@@ -74,16 +68,12 @@ export function SodDetailView({ id }: SodDetailViewProps) {
     }
   };
 
-  const handleClaim = async () => {
-    if (!userAddress) {
-      setShowConnectModal(true);
-      return;
-    }
+  const executeClaim = async (addr: string) => {
     setActionLoading(true);
     setActionSuccess(null);
     setError(null);
     try {
-      const res = await client.claimSod(id, userAddress);
+      const res = await client.claimSod(id, addr);
       setSod(res.sod);
       const msg = "Funds successfully claimed into your wallet!";
       setActionSuccess(msg);
@@ -97,16 +87,20 @@ export function SodDetailView({ id }: SodDetailViewProps) {
     }
   };
 
-  const handleCancel = async () => {
+  const handleClaim = async () => {
     if (!userAddress) {
-      setShowConnectModal(true);
+      promptConnect("claim funds", (addr) => executeClaim(addr));
       return;
     }
+    await executeClaim(userAddress);
+  };
+
+  const executeCancel = async (addr: string) => {
     setActionLoading(true);
     setActionSuccess(null);
     setError(null);
     try {
-      const res = await client.cancelSod(id, userAddress);
+      const res = await client.cancelSod(id, addr);
       setSod(res.sod);
       const msg = "Sod successfully cancelled.";
       setActionSuccess(msg);
@@ -120,16 +114,20 @@ export function SodDetailView({ id }: SodDetailViewProps) {
     }
   };
 
-  const handleRequestReveal = async () => {
+  const handleCancel = async () => {
     if (!userAddress) {
-      setShowConnectModal(true);
+      promptConnect("cancel Sod", (addr) => executeCancel(addr));
       return;
     }
+    await executeCancel(userAddress);
+  };
+
+  const executeRequestReveal = async (addr: string) => {
     setActionLoading(true);
     setActionSuccess(null);
     setError(null);
     try {
-      const res = await client.requestReveal(id, userAddress);
+      const res = await client.requestReveal(id, addr);
       setSod(res.sod);
       const msg = "Reveal requested! Waiting for the other party to approve.";
       setActionSuccess(msg);
@@ -143,16 +141,20 @@ export function SodDetailView({ id }: SodDetailViewProps) {
     }
   };
 
-  const handleApproveReveal = async () => {
+  const handleRequestReveal = async () => {
     if (!userAddress) {
-      setShowConnectModal(true);
+      promptConnect("request reveal", (addr) => executeRequestReveal(addr));
       return;
     }
+    await executeRequestReveal(userAddress);
+  };
+
+  const executeApproveReveal = async (addr: string) => {
     setActionLoading(true);
     setActionSuccess(null);
     setError(null);
     try {
-      const res = await client.approveReveal(id, userAddress);
+      const res = await client.approveReveal(id, addr);
       setSod(res.sod);
       const msg = "Reveal approved! Amount is now publicly verified.";
       setActionSuccess(msg);
@@ -164,6 +166,14 @@ export function SodDetailView({ id }: SodDetailViewProps) {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleApproveReveal = async () => {
+    if (!userAddress) {
+      promptConnect("approve reveal", (addr) => executeApproveReveal(addr));
+      return;
+    }
+    await executeApproveReveal(userAddress);
   };
 
   if (isLoading) {
@@ -432,19 +442,6 @@ export function SodDetailView({ id }: SodDetailViewProps) {
           </div>
         </div>
       </div>
-
-      <ConnectPrompt
-        isOpen={showConnectModal}
-        onClose={() => setShowConnectModal(false)}
-        onConnect={(addr) => {
-          setUserAddress(addr);
-          if (typeof window !== "undefined") {
-            localStorage.setItem("sod_user_address", addr);
-          }
-          loadSod();
-        }}
-        actionName="manage this Sod"
-      />
     </div>
   );
 }

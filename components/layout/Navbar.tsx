@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { Logo } from "@/components/ui/Logo";
+import { ConnectButton } from "@/components/wallet/ConnectButton";
 import { MobileMenu } from "./MobileMenu";
 
 export function Navbar() {
@@ -11,15 +13,10 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-[#E5E5E2] bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        {/* Wordmark logo & Mode pill */}
+        {/* Wordmark logo with emblem & Mainnet badge */}
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-1 text-2xl font-bold tracking-tight">
-            <span className="text-[#0B1D33]">Sod</span>
-            <span className="text-[#111111]">Pay</span>
-          </Link>
-          <span
-            className="text-xs px-2.5 py-0.5 rounded-full font-semibold border border-slate-200 bg-slate-100 text-[#5C5C5C] select-none"
-          >
+          <Logo />
+          <span className="hidden sm:inline-block text-[11px] px-2.5 py-0.5 rounded-full font-semibold border border-slate-200 bg-slate-100 text-[#5C5C5C] select-none">
             Mainnet
           </span>
         </div>
@@ -56,6 +53,7 @@ export function Navbar() {
 
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-3">
+          <ConnectButton />
           <Link href="/app">
             <Button variant="outline" size="sm">
               Open Sod
@@ -68,11 +66,7 @@ export function Navbar() {
 
         {/* Mobile controls */}
         <div className="flex items-center gap-2 md:hidden">
-          <Link href="/app">
-            <Button variant="outline" size="sm">
-              Open Sod
-            </Button>
-          </Link>
+          <ConnectButton />
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
