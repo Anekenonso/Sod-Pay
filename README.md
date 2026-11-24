@@ -8,7 +8,9 @@
 
 - **Live Application:** [https://sod-pay.vercel.app](https://sod-pay.vercel.app) *(or local `http://localhost:3000`)*
 - **GitHub Repository:** [https://github.com/Anekenonso/Sod-Pay](https://github.com/Anekenonso/Sod-Pay)
-- **Tari Template:** `template/src/lib.rs` (Tari Ootle WASM contract)
+- **Deployed Mainnet Template:** [`template_f633483cd1d57317f6d9e104ecb2c5c1a37a8def33abf3784c15207d47fd3855`](https://indexer-a.ootle.tari.com/templates/f633483cd1d57317f6d9e104ecb2c5c1a37a8def33abf3784c15207d47fd3855)
+- **Publish Transaction ID:** `b8e2d6619ecfc4e67149d71c4179504bdd8d5d3dbff44faae0ad81ff34e039a4`
+- **Tari Template Source:** `template/src/lib.rs` (Tari Ootle WASM contract)
 - **Announcement Thread:** [Tari Forum Contest Thread /t/520](https://tari.community)
 
 ---

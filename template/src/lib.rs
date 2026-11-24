@@ -1,20 +1,26 @@
 use tari_template_lib::prelude::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SodStatus {
+    Created = 0,
+    Paid = 1,
+    Claimed = 2,
+    Cancelled = 3,
+    Revealed = 4,
+}
+
+pub const STATUS_CREATED: u8 = 0;
+pub const STATUS_PAID: u8 = 1;
+pub const STATUS_CLAIMED: u8 = 2;
+pub const STATUS_CANCELLED: u8 = 3;
+pub const STATUS_REVEALED: u8 = 4;
+
 #[template]
 mod sod_pay_template {
     use super::*;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub enum SodStatus {
-        Created,
-        Paid,
-        Claimed,
-        Cancelled,
-        Revealed,
-    }
-
     pub struct SodPay {
-        status: SodStatus,
+        status: u8,
         amount: Option<Amount>,
         description: String,
         creator: RistrettoPublicKeyBytes,
@@ -48,7 +54,7 @@ mod sod_pay_template {
                 .add_method_rule("approve_reveal", rule!(allow_all));
 
             let component = Component::new(Self {
-                status: SodStatus::Created,
+                status: STATUS_CREATED,
                 amount,
                 description,
                 creator: caller,
@@ -71,7 +77,7 @@ mod sod_pay_template {
         pub fn pay(&mut self, payment: Bucket) {
             assert_eq!(
                 self.status,
-                SodStatus::Created,
+                STATUS_CREATED,
                 "Cannot pay: Sod is not in Created status"
             );
 
@@ -96,7 +102,7 @@ mod sod_pay_template {
             let payer = CallerContext::transaction_signer_public_key();
             self.payer = Some(payer);
             self.vault.deposit(payment);
-            self.status = SodStatus::Paid;
+            self.status = STATUS_PAID;
 
             emit_event("SodPaid", [("status", "Paid")]);
         }
@@ -104,11 +110,11 @@ mod sod_pay_template {
         /// Claim funds from vault using claim badge.
         pub fn claim(&mut self) -> Bucket {
             assert!(
-                self.status == SodStatus::Paid || self.status == SodStatus::Revealed,
+                self.status == STATUS_PAID || self.status == STATUS_REVEALED,
                 "Cannot claim: funds are not Paid"
             );
 
-            self.status = SodStatus::Claimed;
+            self.status = STATUS_CLAIMED;
             emit_event("SodClaimed", [("status", "Claimed")]);
 
             self.vault.withdraw_all()
@@ -118,21 +124,21 @@ mod sod_pay_template {
         pub fn cancel(&mut self) {
             assert_eq!(
                 self.status,
-                SodStatus::Created,
+                STATUS_CREATED,
                 "Cannot cancel: only Created Sods can be cancelled"
             );
 
             let caller = CallerContext::transaction_signer_public_key();
             assert_eq!(caller, self.creator, "Only creator can cancel");
 
-            self.status = SodStatus::Cancelled;
+            self.status = STATUS_CANCELLED;
             emit_event("SodCancelled", [("status", "Cancelled")]);
         }
 
         /// Request reveal of the payment amount.
         pub fn request_reveal(&mut self) {
             assert!(
-                self.status == SodStatus::Paid || self.status == SodStatus::Claimed,
+                self.status == STATUS_PAID || self.status == STATUS_CLAIMED,
                 "Reveal can only be requested on Paid or Claimed Sods"
             );
             assert!(!self.is_revealed, "Already revealed");
@@ -154,7 +160,7 @@ mod sod_pay_template {
         /// Approve reveal of the payment amount (requires two distinct parties).
         pub fn approve_reveal(&mut self) {
             assert!(
-                self.status == SodStatus::Paid || self.status == SodStatus::Claimed,
+                self.status == STATUS_PAID || self.status == STATUS_CLAIMED,
                 "Reveal can only be approved on Paid or Claimed Sods"
             );
             assert!(!self.is_revealed, "Already revealed");
@@ -173,12 +179,12 @@ mod sod_pay_template {
             );
 
             self.is_revealed = true;
-            self.status = SodStatus::Revealed;
+            self.status = STATUS_REVEALED;
             emit_event("SodRevealed", [("status", "Revealed")]);
         }
 
         /// Read current status
-        pub fn get_status(&self) -> SodStatus {
+        pub fn get_status(&self) -> u8 {
             self.status
         }
 
@@ -197,8 +203,6 @@ mod sod_pay_template {
         }
     }
 }
-
-pub use sod_pay_template::SodStatus;
 
 /// Standalone domain state engine for unit and integration testing
 #[derive(Debug, Clone)]
