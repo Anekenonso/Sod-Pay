@@ -351,6 +351,24 @@ export class RealTariSodClient implements TariSodClient {
         args
       );
 
+      // Deposit the minted claim badge bucket (index 1 of (Component, Bucket)) into the creator's account
+      try {
+        if (typeof builder.saveVar === "function") {
+          builder.saveVar("create_result");
+        }
+        if (typeof builder.callMethod === "function") {
+          builder.callMethod(
+            {
+              componentAddress: signerAddress,
+              methodName: "deposit",
+            },
+            [{ Workspace: "create_result.1" }]
+          );
+        }
+      } catch {
+        // Fall back if builder does not support chaining or in mock environments
+      }
+
       const { txId, res } = await this.executeTransaction(builder, FEES.CREATE_MAX_FEE);
 
       // Extract real component address and badge resource from chain transaction result
@@ -588,9 +606,63 @@ export class RealTariSodClient implements TariSodClient {
                 methodName: "claim",
               },
               []
-            );
+            )
+              .saveVar("claimed_funds")
+              .callMethod(
+                {
+                  componentAddress: claimantAddress,
+                  methodName: "deposit",
+                },
+                [{ Workspace: "claimed_funds" }]
+              );
           })
           .dropAllProofsInWorkspace();
+      } catch {
+        try {
+          builder
+            .callMethod(
+              {
+                componentAddress: sodId,
+                methodName: "claim",
+              },
+              []
+            )
+            .saveVar("claimed_funds")
+            .callMethod(
+              {
+                componentAddress: claimantAddress,
+                methodName: "deposit",
+              },
+              [{ Workspace: "claimed_funds" }]
+            );
+        } catch {
+          builder.callMethod(
+            {
+              componentAddress: sodId,
+              methodName: "claim",
+            },
+            []
+          );
+        }
+      }
+    } else {
+      try {
+        builder
+          .callMethod(
+            {
+              componentAddress: sodId,
+              methodName: "claim",
+            },
+            []
+          )
+          .saveVar("claimed_funds")
+          .callMethod(
+            {
+              componentAddress: claimantAddress,
+              methodName: "deposit",
+            },
+            [{ Workspace: "claimed_funds" }]
+          );
       } catch {
         builder.callMethod(
           {
@@ -600,14 +672,6 @@ export class RealTariSodClient implements TariSodClient {
           []
         );
       }
-    } else {
-      builder.callMethod(
-        {
-          componentAddress: sodId,
-          methodName: "claim",
-        },
-        []
-      );
     }
 
     const { txId } = await this.executeTransaction(builder, FEES.CLAIM_MAX_FEE);

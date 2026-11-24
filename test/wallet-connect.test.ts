@@ -66,6 +66,8 @@ describe("P0 - Wallet connection and Signer session (v3)", () => {
       TransactionBuilder: class MockBuilder {
         feeTransactionPayFromComponent = vi.fn();
         callFunction = vi.fn();
+        saveVar = vi.fn().mockReturnThis();
+        callMethod = vi.fn().mockReturnThis();
         buildUnsignedTransaction = () => ({
           instructions: mockInstructions,
           fee_instructions: [],
@@ -142,6 +144,8 @@ describe("P0 - Wallet connection and Signer session (v3)", () => {
       TransactionBuilder: class MockBuilder {
         feeTransactionPayFromComponent = vi.fn();
         callFunction = vi.fn();
+        saveVar = vi.fn().mockReturnThis();
+        callMethod = vi.fn().mockReturnThis();
         buildUnsignedTransaction = () => ({
           instructions: [],
           fee_instructions: [],
@@ -200,6 +204,8 @@ describe("P0 - Wallet connection and Signer session (v3)", () => {
       TransactionBuilder: class MockBuilder {
         feeTransactionPayFromComponent = vi.fn();
         callFunction = vi.fn();
+        saveVar = vi.fn().mockReturnThis();
+        callMethod = vi.fn().mockReturnThis();
         buildUnsignedTransaction = () => ({
           instructions: [],
           fee_instructions: [],
@@ -249,6 +255,8 @@ describe("P0 - Wallet connection and Signer session (v3)", () => {
       TransactionBuilder: class MockBuilder {
         feeTransactionPayFromComponent = vi.fn();
         callFunction = vi.fn();
+        saveVar = vi.fn().mockReturnThis();
+        callMethod = vi.fn().mockReturnThis();
         buildUnsignedTransaction = () => ({
           instructions: [],
           fee_instructions: [],
