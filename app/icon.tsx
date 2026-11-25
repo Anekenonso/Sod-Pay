@@ -15,7 +15,6 @@ export default function Icon() {
           alignItems: "center",
           justifyContent: "center",
           borderRadius: 8,
-          position: "relative",
         }}
       >
         <svg
@@ -26,19 +25,14 @@ export default function Icon() {
           xmlns="http://www.w3.org/2000/svg"
         >
           <path
-            d="M8 10V7C8 4.79 9.79 3 12 3C14.21 3 16 4.79 16 7V10"
-            stroke="#E8C547"
-            strokeWidth="2.2"
-            strokeLinecap="round"
+            d="M11 4.5C7.13 4.5 4 7.63 4 11.5C4 14.32 5.67 16.75 8.08 17.85V13.85C6.84 13.06 6 11.67 6 10.1C6 7.84 7.84 6 10.1 6H11V4.5Z"
+            fill="#F7F7F5"
           />
-          <rect x="5" y="10" width="14" height="11" rx="2.5" fill="#E8C547" />
-          <circle cx="12" cy="14.5" r="1.5" fill="#0B1D33" />
           <path
-            d="M12 15.5V17.5"
-            stroke="#0B1D33"
-            strokeWidth="1.6"
-            strokeLinecap="round"
+            d="M13 19.5C16.87 19.5 20 16.37 20 12.5C20 9.68 18.33 7.25 15.92 6.15V10.15C17.16 10.94 18 12.33 18 13.9C18 16.16 16.16 18 13.9 18H13V19.5Z"
+            fill="#E8C547"
           />
+          <rect x="10.25" y="8.5" width="3.5" height="7" rx="1.75" fill="#E8C547" />
         </svg>
       </div>
     ),

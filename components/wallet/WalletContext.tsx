@@ -11,7 +11,6 @@ import {
   getInjectedExtensions,
   connectExtension as tariConnectExtension,
   connectWalletDaemon,
-  isExtensionAvailable,
 } from "@/lib/tari/wallet";
 import { setActiveWalletSession } from "@/lib/tari/client";
 

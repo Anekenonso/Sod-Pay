@@ -42,6 +42,21 @@ export function formatFriendlyError(
   ) {
     userMessage = "This action needs a higher network fee. Please try again.";
   }
+  // 1b. Already-paid Sod race condition
+  else if (rawMessage.includes("Cannot pay: Sod is not in Created status")) {
+    userMessage = "This payment link has already been paid.";
+  }
+  // 1c. On-chain ExecutionFailure / FeeIntentCommit (don't mask as wallet popup rejection)
+  else if (
+    rawMessage.includes("ExecutionFailure") ||
+    rawMessage.includes("FeeIntentCommit") ||
+    rawMessage.includes("Transaction failed on chain")
+  ) {
+    const msgMatch = rawMessage.match(/"message"\s*:\s*"([^"]+)"/);
+    userMessage = msgMatch
+      ? `On-chain execution failed: ${msgMatch[1]}`
+      : "Transaction failed on chain after fee payment. Check console for details.";
+  }
   // 2. Wallet rejected / failed to sign
   else if (
     lower.includes("rejected") ||

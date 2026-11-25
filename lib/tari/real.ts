@@ -1,16 +1,15 @@
 import type {
   NamedArg,
-  Network as NetworkType,
   Signer,
 } from "@tari-project/ootle";
 import type { IndexerProvider } from "@tari-project/ootle-indexer";
-import type { WalletDaemonSigner } from "@tari-project/ootle-wallet-daemon-signer";
 import { Sod, CreateSodInput, canCancel } from "../sod";
 import { TariSodClient } from "./types";
 import { APP_CONFIG, FEES } from "../constants";
 import { logAction } from "./logger";
 import { waitForCommitted } from "./finality";
 import type { ActiveWalletSession } from "./client";
+import { tariToMicroTari, formatMicroTari } from "./amounts";
 
 async function loadOotleSdk() {
   const ootle = await import("@tari-project/ootle");
@@ -25,7 +24,7 @@ async function loadOotleSdk() {
     intLiteral: ootle.intLiteral,
     TARI_RESOURCE_ADDRESS: ootle.TARI_RESOURCE_ADDRESS,
     decodeExecuteResult: ootle.decodeExecuteResult,
-    decodeTransactionReceipt: ootle.decodeTransactionReceipt,
+    decodeSubstateValue: ootle.decodeSubstateValue,
     ProviderBuilder: indexer.ProviderBuilder,
   };
 }
@@ -128,6 +127,233 @@ function extractComponentAndBadgeFromTxResult(
   return { componentAddress, claimBadgeResource };
 }
 
+function extractVaultIdsFromValue(value: unknown, out: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) extractVaultIdsFromValue(item, out);
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+
+  const obj = value as Record<string, unknown>;
+  const cborKind = obj["@cbor"];
+  if (typeof cborKind === "string") {
+    if (cborKind === "tag") {
+      const inner = obj.value as Record<string, unknown> | undefined;
+      if (obj.tag === 132 && inner && inner["@cbor"] === "bytes" && typeof inner.hex === "string") {
+        if (inner.hex.length === 64) {
+          out.add(`vault_${inner.hex}`);
+        }
+      }
+      extractVaultIdsFromValue(obj.value, out);
+    } else if (cborKind === "map" && Array.isArray(obj.entries)) {
+      for (const entry of obj.entries) {
+        if (Array.isArray(entry) && entry.length === 2) {
+          extractVaultIdsFromValue(entry[0], out);
+          extractVaultIdsFromValue(entry[1], out);
+        }
+      }
+    }
+    return;
+  }
+
+  for (const v of Object.values(obj)) {
+    extractVaultIdsFromValue(v, out);
+  }
+}
+
+function extractVaultIdsFromSubstate(
+  substate: unknown,
+  decodeSubstateValueFn?: (encoded: string) => unknown
+): string[] {
+  const vaults = new Set<string>();
+  if (!substate || typeof substate !== "object") return [];
+
+  const subObj = substate as Record<string, unknown>;
+  const state = subObj.state as Record<string, unknown> | undefined;
+  const up = state && "up" in state ? (state.up as Record<string, unknown>) : null;
+  const rawSubstate = up?.substate;
+
+  if (typeof rawSubstate === "string" && decodeSubstateValueFn) {
+    try {
+      const decoded = decodeSubstateValueFn(rawSubstate) as Record<string, unknown>;
+      const comp = decoded?.Component as Record<string, unknown> | undefined;
+      const body = comp?.body as Record<string, unknown> | undefined;
+      if (body?.state) {
+        extractVaultIdsFromValue(body.state, vaults);
+      }
+    } catch {
+      // Fall back to regex scan below
+    }
+  } else if (rawSubstate && typeof rawSubstate === "object") {
+    extractVaultIdsFromValue(rawSubstate, vaults);
+  }
+
+  try {
+    const jsonStr = JSON.stringify(substate);
+    const matches = jsonStr.match(/vault_[0-9a-fA-F]{64}/g);
+    if (matches) {
+      for (const m of matches) vaults.add(m);
+    }
+  } catch {
+    // Ignore stringify error
+  }
+
+  return Array.from(vaults);
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  let out = "";
+  for (let i = 0; i < bytes.length; i++) {
+    out += bytes[i].toString(16).padStart(2, "0");
+  }
+  return out;
+}
+
+function decodeCborBytes(bytes: Uint8Array): unknown {
+  let offset = 0;
+
+  function readUint(addl: number): number {
+    if (addl < 24) return addl;
+    if (addl === 24) return bytes[offset++];
+    if (addl === 25) {
+      const v = (bytes[offset] << 8) | bytes[offset + 1];
+      offset += 2;
+      return v;
+    }
+    if (addl === 26) {
+      const v =
+        ((bytes[offset] << 24) |
+          (bytes[offset + 1] << 16) |
+          (bytes[offset + 2] << 8) |
+          bytes[offset + 3]) >>>
+        0;
+      offset += 4;
+      return v;
+    }
+    if (addl === 27) {
+      let v = 0n;
+      for (let i = 0; i < 8; i++) {
+        v = (v << 8n) | BigInt(bytes[offset++]);
+      }
+      return Number(v);
+    }
+    return 0;
+  }
+
+  function readItem(): unknown {
+    const initial = bytes[offset++];
+    const major = initial >> 5;
+    const addl = initial & 0x1f;
+
+    if (major === 0) return readUint(addl);
+    if (major === 1) return -1 - readUint(addl);
+    if (major === 2) {
+      const len = readUint(addl);
+      const slice = bytes.subarray(offset, offset + len);
+      offset += len;
+      return bytesToHex(slice);
+    }
+    if (major === 3) {
+      const len = readUint(addl);
+      const slice = bytes.subarray(offset, offset + len);
+      offset += len;
+      return new TextDecoder().decode(slice);
+    }
+    if (major === 4) {
+      const len = readUint(addl);
+      const arr: unknown[] = [];
+      for (let i = 0; i < len; i++) arr.push(readItem());
+      return arr;
+    }
+    if (major === 5) {
+      const len = readUint(addl);
+      const obj: Record<string, unknown> = {};
+      for (let i = 0; i < len; i++) {
+        const k = String(readItem());
+        obj[k] = readItem();
+      }
+      return obj;
+    }
+    if (major === 6) {
+      const tag = readUint(addl);
+      const val = readItem();
+      if (typeof val === "string" && val.length === 64) {
+        if (tag === 128) return `component_${val}`;
+        if (tag === 129 || tag === 131) return `resource_${val}`;
+        if (tag === 132) return `vault_${val}`;
+      }
+      return val;
+    }
+    if (major === 7) {
+      if (addl === 20) return false;
+      if (addl === 21) return true;
+      if (addl === 22 || addl === 23) return null;
+    }
+    return null;
+  }
+
+  return readItem();
+}
+
+function decodeCborFromBase64OrHex(encoded: string): unknown {
+  const trimmed = encoded.trim();
+  if (/^[0-9a-fA-F]+$/.test(trimmed) && trimmed.length % 2 === 0) {
+    const bytes = new Uint8Array(trimmed.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = parseInt(trimmed.slice(i * 2, i * 2 + 2), 16);
+    }
+    return decodeCborBytes(bytes);
+  }
+  const binary = atob(trimmed);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return decodeCborBytes(bytes);
+}
+
+function cborValueToJs(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(cborValueToJs);
+  }
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const obj = value as Record<string, unknown>;
+  const cborKind = obj["@cbor"];
+  if (typeof cborKind === "string") {
+    if (cborKind === "bytes" && typeof obj.hex === "string") {
+      return obj.hex;
+    }
+    if (cborKind === "tag") {
+      const inner = cborValueToJs(obj.value);
+      if (typeof inner === "string" && inner.length === 64) {
+        if (obj.tag === 128) return `component_${inner}`;
+        if (obj.tag === 129 || obj.tag === 131) return `resource_${inner}`;
+        if (obj.tag === 132) return `vault_${inner}`;
+      }
+      return inner;
+    }
+    if (cborKind === "map" && Array.isArray(obj.entries)) {
+      const out: Record<string, unknown> = {};
+      for (const entry of obj.entries) {
+        if (Array.isArray(entry) && entry.length === 2) {
+          const k = String(cborValueToJs(entry[0]));
+          out[k] = cborValueToJs(entry[1]);
+        }
+      }
+      return out;
+    }
+  }
+
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    out[k] = cborValueToJs(v);
+  }
+  return out;
+}
+
 function parseStatus(rawStatus: unknown): Sod["status"] {
   if (rawStatus === 0 || rawStatus === "0" || rawStatus === "Created") return "Created";
   if (rawStatus === 1 || rawStatus === "1" || rawStatus === "Paid") return "Paid";
@@ -142,6 +368,7 @@ export class RealTariSodClient implements TariSodClient {
   private providerPromise: Promise<IndexerProvider> | null = null;
   private activeSession: ActiveWalletSession | null = null;
   private activeSigner: Signer | null = null;
+  private accountPubkeyCache = new Map<string, string>();
 
   constructor(
     private networkName: string = APP_CONFIG.DEFAULT_NETWORK,
@@ -202,6 +429,48 @@ export class RealTariSodClient implements TariSodClient {
   }
 
   /**
+   * Declares component addresses and their child vaults as transaction inputs
+   * so both daemon (`resolveInputs`) and browser extensions receive explicit inputs.
+   */
+  private async addComponentInputs(builder: any, addresses: string[]): Promise<void> {
+    if (typeof builder.addInput !== "function") return;
+
+    const seen = new Set<string>();
+    const uniqueAddresses = addresses.filter((addr) => {
+      if (!addr || seen.has(addr)) return false;
+      seen.add(addr);
+      return true;
+    });
+
+    for (const addr of uniqueAddresses) {
+      builder.addInput({ substate_id: addr, version: null });
+    }
+
+    try {
+      const sdk = await this.loadSdk();
+      const provider = await this.getProvider();
+      if (!provider || typeof provider.getSubstate !== "function") return;
+
+      for (const addr of uniqueAddresses) {
+        try {
+          const substate = await provider.getSubstate(addr);
+          const vaultIds = extractVaultIdsFromSubstate(substate, sdk.decodeSubstateValue);
+          for (const vaultId of vaultIds) {
+            if (!seen.has(vaultId)) {
+              seen.add(vaultId);
+              builder.addInput({ substate_id: vaultId, version: null });
+            }
+          }
+        } catch {
+          // Substate may not be indexed yet or mock provider may omit getSubstate
+        }
+      }
+    } catch {
+      // Indexer unavailable (e.g. unit test environment)
+    }
+  }
+
+  /**
    * Executes a transaction using ONLY the connected wallet session.
    * If session is an extension (Sapient or compatible): uses tari_signAndSubmitTransaction.
    * If session is daemon: uses daemon signer via sendTransaction.
@@ -247,7 +516,10 @@ export class RealTariSodClient implements TariSodClient {
       };
 
       if (Array.isArray(unsignedTx.inputs) && unsignedTx.inputs.length > 0) {
-        params.inputs = unsignedTx.inputs;
+        params.inputs = unsignedTx.inputs.map((inp: any) => ({
+          substate_id: inp.substate_id,
+          version: inp.version ?? null,
+        }));
       }
 
       let res: any;
@@ -259,7 +531,20 @@ export class RealTariSodClient implements TariSodClient {
           });
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
-          throw new Error(`Extension rejected or failed to sign and submit: ${msg}`);
+          if (msg.toLowerCase().includes("not connected") || msg.includes("tari_requestAccounts")) {
+            try {
+              await provider.request({ method: "tari_requestAccounts" });
+              res = await provider.request({
+                method: "tari_signAndSubmitTransaction",
+                params,
+              });
+            } catch (retryErr: unknown) {
+              const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+              throw new Error(`Extension rejected or failed to sign and submit: ${retryMsg}`);
+            }
+          } else {
+            throw new Error(`Extension rejected or failed to sign and submit: ${msg}`);
+          }
         }
       } else if (typeof provider.signAndSubmitTransaction === "function") {
         try {
@@ -288,6 +573,20 @@ export class RealTariSodClient implements TariSodClient {
         txId = `tx_${Date.now()}`;
       }
 
+      // Surface on-chain FeeIntentCommit / Reject / Abort failures instead of silently succeeding
+      if (res && typeof res === "object") {
+        const anyRes = res as any;
+        const resultObj = anyRes.result || anyRes;
+        if (resultObj && (resultObj.Reject || resultObj.Abort)) {
+          throw new Error(`Transaction aborted on chain: ${JSON.stringify(resultObj.Reject || resultObj.Abort)}`);
+        }
+        const jsonStr = JSON.stringify(res);
+        if (jsonStr.includes("ExecutionFailure") || jsonStr.includes("FeeIntentCommit")) {
+          const execMatch = jsonStr.match(/"ExecutionFailure"\s*:\s*(\{[^}]+\})/);
+          throw new Error(`Transaction failed on chain (fee paid): ${execMatch ? execMatch[1] : jsonStr}`);
+        }
+      }
+
       return { txId, res };
     }
 
@@ -309,6 +608,20 @@ export class RealTariSodClient implements TariSodClient {
 
       const res = await sendTransaction(provider, signer, unsignedTx);
       const txId = (res as { transaction_id?: string }).transaction_id || `tx_${Date.now()}`;
+      // Surface on-chain FeeIntentCommit / Reject / Abort failures instead of silently succeeding
+      if (res && typeof res === "object") {
+        const anyRes = res as any;
+        const resultObj = anyRes.result || anyRes;
+        if (resultObj && (resultObj.Reject || resultObj.Abort)) {
+          throw new Error(`Transaction aborted on chain: ${JSON.stringify(resultObj.Reject || resultObj.Abort)}`);
+        }
+        const jsonStr = JSON.stringify(res);
+        if (jsonStr.includes("ExecutionFailure") || jsonStr.includes("FeeIntentCommit")) {
+          const execMatch = jsonStr.match(/"ExecutionFailure"\s*:\s*(\{[^}]+\})/);
+          throw new Error(`Transaction failed on chain (fee paid): ${execMatch ? execMatch[1] : jsonStr}`);
+        }
+      }
+
       return { txId, res };
     }
 
@@ -323,17 +636,20 @@ export class RealTariSodClient implements TariSodClient {
       const { builder } = await this.createTxBuilder();
       const sdk = await this.loadSdk();
 
+      // Option<T>::None in tari_bor CBOR is 0xf6 (null), hex-encoded as "f6"
+      const CBOR_NONE_LITERAL = { Literal: "f6" } as const;
+
       const args: NamedArg[] = [];
       if (input.amount) {
-        args.push(sdk.amountLiteral(BigInt(Math.floor(parseFloat(input.amount)))));
+        args.push(sdk.amountLiteral(tariToMicroTari(input.amount)));
       } else {
-        args.push({ Literal: JSON.stringify(null) });
+        args.push(CBOR_NONE_LITERAL);
       }
       args.push(sdk.stringLiteral(input.description));
       if (input.expiryEpoch) {
         args.push(sdk.intLiteral(BigInt(input.expiryEpoch)));
       } else {
-        args.push({ Literal: JSON.stringify(null) });
+        args.push(CBOR_NONE_LITERAL);
       }
 
       // Add fee instruction paying from creator's account
@@ -345,7 +661,7 @@ export class RealTariSodClient implements TariSodClient {
 
       builder.callFunction(
         {
-          templateAddress: this.templateAddress,
+          templateAddress: this.templateAddress.replace(/^template_/, ""),
           functionName: "create",
         },
         args
@@ -368,6 +684,9 @@ export class RealTariSodClient implements TariSodClient {
       } catch {
         // Fall back if builder does not support chaining or in mock environments
       }
+
+      // Declare creator account and its vaults as transaction inputs
+      await this.addComponentInputs(builder, [signerAddress]);
 
       const { txId, res } = await this.executeTransaction(builder, FEES.CREATE_MAX_FEE);
 
@@ -490,7 +809,10 @@ export class RealTariSodClient implements TariSodClient {
         if (currentSod.status !== "Created") {
           throw new Error("Cannot pay: Sod is not in Created status");
         }
-        if (currentSod.amount !== null && parseFloat(currentSod.amount) !== parseFloat(amount)) {
+        if (
+          currentSod.amount !== null &&
+          tariToMicroTari(currentSod.amount) !== tariToMicroTari(amount)
+        ) {
           throw new Error(
             `Wrong amount: expected ${currentSod.amount} TARI, received ${amount} TARI`
           );
@@ -500,7 +822,7 @@ export class RealTariSodClient implements TariSodClient {
       const { builder } = await this.createTxBuilder();
       const sdk = await this.loadSdk();
 
-      const parsedAmount = BigInt(Math.floor(parseFloat(amount)));
+      const parsedAmount = tariToMicroTari(amount);
 
       // 1. Fee payment from payer account
       try {
@@ -531,7 +853,24 @@ export class RealTariSodClient implements TariSodClient {
           [{ Workspace: "payment_bucket" }]
         );
 
+      // Declare payer account, Sod component, and their vaults as transaction inputs
+      await this.addComponentInputs(builder, [payerAddress, sodId]);
+
       const { txId } = await this.executeTransaction(builder, FEES.PAY_MAX_FEE);
+
+      // Cache known component address for payer session listing
+      if (typeof window !== "undefined") {
+        try {
+          const key = `sod_paid_${payerAddress}`;
+          const existing: string[] = JSON.parse(localStorage.getItem(key) || "[]");
+          if (!existing.includes(sodId)) {
+            existing.push(sodId);
+            localStorage.setItem(key, JSON.stringify(existing));
+          }
+        } catch {
+          // Local storage unavailable
+        }
+      }
 
       const updatedSod = await waitForCommitted(async () => {
         return this.getSod(sodId);
@@ -674,6 +1013,8 @@ export class RealTariSodClient implements TariSodClient {
       }
     }
 
+    await this.addComponentInputs(builder, [claimantAddress, sodId]);
+
     const { txId } = await this.executeTransaction(builder, FEES.CLAIM_MAX_FEE);
 
     const updatedSod = await waitForCommitted(async () => {
@@ -730,6 +1071,8 @@ export class RealTariSodClient implements TariSodClient {
       []
     );
 
+    await this.addComponentInputs(builder, [callerAddress, sodId]);
+
     const { txId } = await this.executeTransaction(builder, FEES.CANCEL_MAX_FEE);
 
     const updatedSod = await waitForCommitted(async () => {
@@ -776,6 +1119,8 @@ export class RealTariSodClient implements TariSodClient {
       []
     );
 
+    await this.addComponentInputs(builder, [callerAddress, sodId]);
+
     const { txId } = await this.executeTransaction(builder, FEES.REVEAL_MAX_FEE);
 
     const updatedSod = await waitForCommitted(async () => {
@@ -805,6 +1150,8 @@ export class RealTariSodClient implements TariSodClient {
       []
     );
 
+    await this.addComponentInputs(builder, [callerAddress, sodId]);
+
     const { txId } = await this.executeTransaction(builder, FEES.REVEAL_MAX_FEE);
 
     const updatedSod = await waitForCommitted(async () => {
@@ -816,26 +1163,73 @@ export class RealTariSodClient implements TariSodClient {
 
   async getSod(sodId: string): Promise<Sod | null> {
     try {
+      const sdk = await this.loadSdk();
       const provider = await this.getProvider();
       const substate = await provider.getSubstate(sodId);
 
       if (!substate || !("up" in substate.state)) return null;
 
       let component: Record<string, unknown> = {};
-      try {
-        const raw = substate.state.up.substate;
-        component = typeof raw === "string" ? JSON.parse(raw) : (raw as Record<string, unknown>);
-      } catch {
-        component = {};
+      const raw = substate.state.up.substate;
+      if (typeof raw === "string") {
+        if (raw.trim().startsWith("{")) {
+          try {
+            component = JSON.parse(raw) as Record<string, unknown>;
+          } catch {
+            component = {};
+          }
+        } else {
+          let decoded = false;
+          if (typeof sdk.decodeSubstateValue === "function") {
+            try {
+              component = cborValueToJs(sdk.decodeSubstateValue(raw)) as Record<string, unknown>;
+              decoded = true;
+            } catch (err) {
+              console.warn("[Sod Pay] decodeSubstateValue failed, using CBOR fallback:", err);
+            }
+          }
+          if (!decoded) {
+            try {
+              component = decodeCborFromBase64OrHex(raw) as Record<string, unknown>;
+            } catch (err) {
+              console.warn("[Sod Pay] CBOR fallback decode failed:", err);
+              component = {};
+            }
+          }
+        }
+      } else if (raw && typeof raw === "object") {
+        component = cborValueToJs(raw) as Record<string, unknown>;
       }
 
       // If component is wrapped inside Component.body.state
-      const stateObj = (
+      const rawState =
         component.Component && typeof component.Component === "object"
           ? (component.Component as Record<string, unknown>).body
             ? ((component.Component as Record<string, unknown>).body as Record<string, unknown>).state
             : component.Component
-          : component
+          : component;
+
+      const decodedState =
+        typeof rawState === "string"
+          ? decodeCborFromBase64OrHex(rawState)
+          : rawState || {};
+
+      // `tari_bor` serializes the Rust `SodPay` struct as a positional 10-element array
+      const stateObj = (
+        Array.isArray(decodedState)
+          ? {
+              status: decodedState[0],
+              amount: decodedState[1],
+              description: decodedState[2],
+              creator: decodedState[3],
+              claim_badge_resource: decodedState[4],
+              vault: decodedState[5],
+              expiry_epoch: decodedState[6],
+              is_revealed: decodedState[7],
+              reveal_requested_by: decodedState[8],
+              payer: decodedState[9],
+            }
+          : decodedState
       ) as Record<string, unknown>;
 
       const resolvedStatus = parseStatus(stateObj.status ?? component.status);
@@ -843,11 +1237,27 @@ export class RealTariSodClient implements TariSodClient {
       return {
         id: sodId,
         status: resolvedStatus,
-        amount: stateObj.amount ? String(stateObj.amount) : component.amount ? String(component.amount) : null,
+        amount:
+          stateObj.amount !== undefined && stateObj.amount !== null
+            ? formatMicroTari(String(stateObj.amount))
+            : component.amount !== undefined && component.amount !== null
+            ? formatMicroTari(String(component.amount))
+            : null,
         description: String(stateObj.description ?? component.description ?? ""),
         creator: String(stateObj.creator ?? component.creator ?? ""),
+        payer:
+          stateObj.payer !== undefined && stateObj.payer !== null
+            ? String(stateObj.payer)
+            : component.payer !== undefined && component.payer !== null
+            ? String(component.payer)
+            : null,
         claimAuthority: String(stateObj.claim_badge_resource ?? stateObj.claim_authority ?? component.claim_authority ?? ""),
-        paidAmount: stateObj.paid_amount ? String(stateObj.paid_amount) : component.paid_amount ? String(component.paid_amount) : null,
+        paidAmount:
+          stateObj.paid_amount !== undefined && stateObj.paid_amount !== null
+            ? formatMicroTari(String(stateObj.paid_amount))
+            : component.paid_amount !== undefined && component.paid_amount !== null
+            ? formatMicroTari(String(component.paid_amount))
+            : null,
         expiryEpoch: ((stateObj.expiry_epoch ?? component.expiry_epoch) as number) ?? null,
         isRevealed: Boolean(stateObj.is_revealed ?? component.is_revealed),
         revealRequestedBy: ((stateObj.reveal_requested_by ?? component.reveal_requested_by) as string) || null,
@@ -886,14 +1296,85 @@ export class RealTariSodClient implements TariSodClient {
 
       for (const id of uniqueIds) {
         const sod = await this.getSod(id);
-        if (sod && sod.creator.toLowerCase() === creatorAddress.toLowerCase()) {
-          sods.push(sod);
+        if (!sod) continue;
+        // On-chain `SodPay.creator` is `RistrettoPublicKeyBytes` (64-char hex), whereas `creatorAddress` is `component_...`.
+        // Only filter by string equality when `sod.creator` is itself a component address.
+        if (
+          sod.creator.startsWith("component_") &&
+          sod.creator.toLowerCase() !== creatorAddress.toLowerCase()
+        ) {
+          continue;
         }
+        sods.push(sod);
       }
 
       return sods;
     } catch {
       return [];
+    }
+  }
+
+  async listSodsByPayer(payerAddress: string): Promise<Sod[]> {
+    try {
+      if (!payerAddress) return [];
+
+      const knownIds: string[] = [];
+      if (typeof window !== "undefined") {
+        try {
+          const key = `sod_paid_${payerAddress}`;
+          const stored: string[] = JSON.parse(localStorage.getItem(key) || "[]");
+          if (Array.isArray(stored)) {
+            knownIds.push(...stored);
+          }
+        } catch {
+          // Local storage unavailable
+        }
+      }
+
+      const sods: Sod[] = [];
+      const uniqueIds = Array.from(new Set(knownIds));
+      for (const id of uniqueIds) {
+        const sod = await this.getSod(id);
+        if (sod) sods.push(sod);
+      }
+
+      return sods;
+    } catch {
+      return [];
+    }
+  }
+
+  async getAccountPublicKey(accountAddress: string): Promise<string | null> {
+    if (!accountAddress) return null;
+    if (!accountAddress.startsWith("component_")) return accountAddress;
+    const cached = this.accountPubkeyCache.get(accountAddress);
+    if (cached) return cached;
+
+    try {
+      const sdk = await this.loadSdk();
+      const provider = await this.getProvider();
+      const substate = await provider.getSubstate(accountAddress);
+      if (!substate || !("up" in substate.state)) return null;
+
+      const raw = substate.state.up.substate;
+      let decoded: Record<string, unknown> = {};
+      if (typeof raw === "string" && typeof sdk.decodeSubstateValue === "function") {
+        decoded = cborValueToJs(sdk.decodeSubstateValue(raw)) as Record<string, unknown>;
+      } else if (raw && typeof raw === "object") {
+        decoded = cborValueToJs(raw) as Record<string, unknown>;
+      }
+
+      const comp = decoded.Component as Record<string, unknown> | undefined;
+      const header = comp?.header as Record<string, unknown> | undefined;
+      const ownerRule = header?.owner_rule as Record<string, unknown> | undefined;
+      const byPubKey = ownerRule?.ByPublicKey;
+      if (typeof byPubKey === "string" && byPubKey.length > 0) {
+        this.accountPubkeyCache.set(accountAddress, byPubKey);
+        return byPubKey;
+      }
+      return null;
+    } catch {
+      return null;
     }
   }
 
@@ -912,11 +1393,34 @@ export class RealTariSodClient implements TariSodClient {
       // 1. On-chain query: Check claimant account substate vaults for the claim badge resource
       if (sod.claimAuthority) {
         try {
+          const sdk = await this.loadSdk();
           const provider = await this.getProvider();
           const substate = await provider.getSubstate(userAddress);
           if (substate && "up" in substate.state) {
-            const raw = JSON.stringify(substate.state.up.substate);
-            if (raw.includes(sod.claimAuthority)) {
+            const rawSubstate = substate.state.up.substate;
+            let searchable = JSON.stringify(rawSubstate);
+            if (typeof rawSubstate === "string" && !rawSubstate.trim().startsWith("{")) {
+              let decoded: unknown = null;
+              if (typeof sdk.decodeSubstateValue === "function") {
+                try {
+                  decoded = cborValueToJs(sdk.decodeSubstateValue(rawSubstate));
+                } catch {
+                  decoded = null;
+                }
+              }
+              if (!decoded) {
+                try {
+                  decoded = decodeCborFromBase64OrHex(rawSubstate);
+                } catch {
+                  decoded = null;
+                }
+              }
+              if (decoded) {
+                searchable = JSON.stringify(decoded);
+              }
+            }
+            const bareResourceHex = sod.claimAuthority.replace(/^resource_/, "");
+            if (searchable.includes(sod.claimAuthority) || (bareResourceHex && searchable.includes(bareResourceHex))) {
               return true;
             }
           }

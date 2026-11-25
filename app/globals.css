@@ -5,8 +5,10 @@
 :root {
   --background: #F7F7F5;
   --surface: #FFFFFF;
+  --surface-muted: #EFEFEA;
   --text: #111111;
   --textSecondary: #5C5C5C;
+  --textMuted: #767672;
   --border: #E5E5E2;
   --accent: #E8C547;
   --accentText: #111111;
@@ -18,6 +20,12 @@
 body {
   background-color: var(--background);
   color: var(--text);
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   min-height: 100vh;
+}
+
+code,
+pre,
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }

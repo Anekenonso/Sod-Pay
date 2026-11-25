@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/Toast";
 import { MICROCOPY } from "@/lib/constants";
 import { useWallet } from "@/components/wallet/WalletContext";
 import { formatFriendlyError } from "@/lib/errors";
+import { QrCode } from "@/components/ui/QrCode";
 
 interface SodDetailViewProps {
   id: string;
@@ -21,6 +22,7 @@ export function SodDetailView({ id }: SodDetailViewProps) {
   const { address: userAddress, walletType, promptConnect } = useWallet();
   const [sod, setSod] = useState<Sod | null>(null);
   const [holdsBadge, setHoldsBadge] = useState<boolean>(false);
+  const [userPubkey, setUserPubkey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -40,8 +42,14 @@ export function SodDetailView({ id }: SodDetailViewProps) {
       setSod(data);
 
       if (userAddress) {
-        const hasBadge = await client.userHoldsClaimBadge(id, userAddress);
+        const [hasBadge, pubkey] = await Promise.all([
+          client.userHoldsClaimBadge(id, userAddress),
+          client.getAccountPublicKey ? client.getAccountPublicKey(userAddress) : Promise.resolve(null),
+        ]);
         setHoldsBadge(hasBadge);
+        setUserPubkey(pubkey);
+      } else {
+        setUserPubkey(null);
       }
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
@@ -195,12 +203,12 @@ export function SodDetailView({ id }: SodDetailViewProps) {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-2xl py-12 px-4 animate-pulse space-y-6">
-        <div className="h-8 w-48 bg-slate-200 rounded" />
+      <div className="mx-auto max-w-2xl py-12 px-4 space-y-6">
+        <div className="h-8 w-48 bg-[#EFEFEA] rounded" />
         <div className="h-64 bg-white border border-[#E5E5E2] rounded-2xl p-6 space-y-4">
-          <div className="h-6 w-1/3 bg-slate-200 rounded" />
-          <div className="h-4 w-1/2 bg-slate-200 rounded" />
-          <div className="h-10 w-full bg-slate-100 rounded" />
+          <div className="h-6 w-1/3 bg-[#EFEFEA] rounded" />
+          <div className="h-4 w-1/2 bg-[#EFEFEA] rounded" />
+          <div className="h-10 w-full bg-[#F7F7F5] rounded" />
         </div>
       </div>
     );
@@ -226,10 +234,17 @@ export function SodDetailView({ id }: SodDetailViewProps) {
 
   if (!sod) return null;
 
-  const userCanCancel = userAddress ? canCancel(sod, userAddress) : false;
+  const partyId = userAddress
+    ? sod.creator.startsWith("component_")
+      ? userAddress
+      : userPubkey || userAddress
+    : "";
+  const payerId = sod.payer || null;
+
+  const userCanCancel = partyId ? canCancel(sod, partyId) : false;
   const userCanClaim = userAddress ? canClaim(sod, userAddress, holdsBadge) : false;
-  const userCanReqReveal = userAddress ? canRequestReveal(sod, userAddress) : false;
-  const userCanApproveReveal = userAddress ? canApproveReveal(sod, userAddress) : false;
+  const userCanReqReveal = partyId ? canRequestReveal(sod, partyId, payerId) : false;
+  const userCanApproveReveal = partyId ? canApproveReveal(sod, partyId, payerId) : false;
 
   return (
     <div className="mx-auto max-w-2xl py-10 px-4 sm:px-6 space-y-6">
@@ -257,78 +272,75 @@ export function SodDetailView({ id }: SodDetailViewProps) {
       )}
 
       {/* Main Card */}
-      <div className="rounded-2xl border border-[#E5E5E2] bg-white p-6 sm:p-8 shadow-sm space-y-6">
+      <div className="rounded-2xl border border-[#E5E5E2] bg-white p-5 sm:p-8 shadow-sm space-y-6 overflow-hidden min-w-0">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <Badge status={sod.status} />
               {holdsBadge && (
-                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#1F7A4D] bg-[#1F7A4D]/10 border border-[#1F7A4D]/20 px-2 py-0.5 rounded-md">
-                  Claim Badge Holder
+                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#1F7A4D] bg-[#1F7A4D]/10 border border-[#1F7A4D]/20 px-2 py-0.5 rounded-md">
+                  Claim badge holder
                 </span>
               )}
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#111111]">
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#111111] break-words">
               {sod.description || "Payment Request"}
             </h1>
           </div>
-          <div className="text-right">
-            <div className="text-xs uppercase tracking-wider text-[#5C5C5C] font-semibold">
+          <div className="sm:text-right flex-shrink-0">
+            <div className="text-xs text-[#5C5C5C] font-medium">
               Amount
             </div>
-            <div className="text-xl font-bold text-[#0B1D33]">
+            <div className="text-xl font-semibold text-[#0B1D33] tabular-nums">
               {sod.amount ? `${sod.amount} TARI` : "Open amount"}
             </div>
           </div>
         </div>
 
-        {/* Share Link & QR Section (T-11 Done-When requirement) */}
-        <div className="rounded-xl border border-[#E5E5E2] bg-[#F7F7F5] p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#5C5C5C]">
-              Share Payment Link & QR
-            </span>
-            <Link href={`/pay/${sod.id}`} className="text-xs text-[#0B1D33] hover:underline font-semibold">
-              Open Pay Page →
-            </Link>
-          </div>
+        {/* Share Link & QR Section (only active while Sod is in Created status) */}
+        {sod.status === "Created" ? (
+          <div className="rounded-xl border border-[#E5E5E2] bg-[#F7F7F5] p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-[#5C5C5C]">
+                Share payment link &amp; QR
+              </span>
+              <Link href={`/pay/${sod.id}`} className="text-xs text-[#0B1D33] hover:underline font-medium flex-shrink-0">
+                Open pay page →
+              </Link>
+            </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              readOnly
-              value={payUrl}
-              className="flex-1 rounded-lg border border-[#E5E5E2] bg-white px-3 py-2 text-sm text-[#111111] font-mono select-all focus:outline-none"
-            />
-            <Button
-              onClick={handleCopyLink}
-              size="sm"
-              className="whitespace-nowrap px-4 font-semibold"
-            >
-              {copied ? "Copied!" : "Copy Link"}
-            </Button>
-          </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={payUrl}
+                className="flex-1 min-w-0 w-full rounded-lg border border-[#E5E5E2] bg-white px-3 py-2 text-sm text-[#111111] font-mono select-all focus:outline-none truncate"
+              />
+              <Button
+                onClick={handleCopyLink}
+                size="sm"
+                className="whitespace-nowrap px-4 font-semibold min-h-[40px] justify-center"
+              >
+                {copied ? "Copied!" : "Copy Link"}
+              </Button>
+            </div>
 
-          {/* QR visual */}
-          <div className="flex items-center gap-4 pt-2">
-            <div className="h-20 w-20 bg-white border border-[#E5E5E2] rounded-lg p-1.5 flex flex-col items-center justify-center flex-shrink-0">
-              <div className="grid grid-cols-4 gap-1 p-1">
-                <div className="h-3 w-3 bg-[#0B1D33]" />
-                <div className="h-3 w-3 bg-white" />
-                <div className="h-3 w-3 bg-[#0B1D33]" />
-                <div className="h-3 w-3 bg-[#E8C547]" />
-                <div className="h-3 w-3 bg-white" />
-                <div className="h-3 w-3 bg-[#0B1D33]" />
-                <div className="h-3 w-3 bg-white" />
-                <div className="h-3 w-3 bg-[#0B1D33]" />
+            {/* Scannable QR Code */}
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 pt-2 text-center sm:text-left">
+              <div className="bg-white border border-[#E5E5E2] rounded-lg p-1.5 flex items-center justify-center flex-shrink-0">
+                <QrCode value={payUrl} size={104} />
+              </div>
+              <div className="text-xs text-[#5C5C5C] leading-relaxed">
+                Anyone with this link or QR can deposit Tari into the confidential vault. The payment amount stays completely hidden from the public ledger.
               </div>
             </div>
-            <div className="text-xs text-[#5C5C5C] leading-relaxed">
-              Anyone with this link or QR can deposit Tari into the confidential vault. The payment amount stays completely hidden from the public ledger.
-            </div>
           </div>
-        </div>
+        ) : (
+          <div className="rounded-xl border border-[#E5E5E2] bg-[#F7F7F5] px-4 py-3 text-xs text-[#5C5C5C]">
+            Payment link is closed — this Sod is already <span className="font-semibold text-[#111111]">{sod.status}</span> and can no longer be paid.
+          </div>
+        )}
 
         {/* Vault & Privacy Status */}
         <div className="rounded-xl border border-[#E5E5E2] bg-white p-5 space-y-3">
@@ -359,7 +371,7 @@ export function SodDetailView({ id }: SodDetailViewProps) {
                 Amount is stored secretly on Tari Ootle. {MICROCOPY.REVEAL_MUTUAL_REQUIRED}
               </p>
               {sod.revealRequestedBy && (
-                <p className="text-xs font-semibold text-[#111111] pt-1">
+                <p className="text-xs font-semibold text-[#111111] pt-1 break-all">
                   Reveal requested by: <code className="font-mono text-[11px]">{sod.revealRequestedBy}</code>
                 </p>
               )}
@@ -373,17 +385,23 @@ export function SodDetailView({ id }: SodDetailViewProps) {
 
         {/* On-Chain Metadata */}
         <div className="rounded-xl border border-[#E5E5E2] bg-white p-4 divide-y divide-[#E5E5E2] text-xs">
-          <div className="py-2 flex justify-between">
-            <span className="text-[#5C5C5C]">Component Address:</span>
-            <span className="font-mono text-[#111111]">{sod.id}</span>
+          <div className="py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4">
+            <span className="text-[#5C5C5C] flex-shrink-0">Component Address</span>
+            <span className="font-mono text-[#111111] break-all sm:truncate sm:max-w-[65%] sm:text-right" title={sod.id}>
+              {sod.id}
+            </span>
           </div>
-          <div className="py-2 flex justify-between">
-            <span className="text-[#5C5C5C]">Creator Address:</span>
-            <span className="font-mono text-[#111111]">{sod.creator}</span>
+          <div className="py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4">
+            <span className="text-[#5C5C5C] flex-shrink-0">Creator Address</span>
+            <span className="font-mono text-[#111111] break-all sm:truncate sm:max-w-[65%] sm:text-right" title={sod.creator}>
+              {sod.creator || "—"}
+            </span>
           </div>
-          <div className="py-2 flex justify-between">
-            <span className="text-[#5C5C5C]">Claim Authority Badge:</span>
-            <span className="font-mono text-[#111111]">{sod.claimAuthority}</span>
+          <div className="py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4">
+            <span className="text-[#5C5C5C] flex-shrink-0">Claim Authority Badge</span>
+            <span className="font-mono text-[#111111] break-all sm:truncate sm:max-w-[65%] sm:text-right" title={sod.claimAuthority}>
+              {sod.claimAuthority || "—"}
+            </span>
           </div>
         </div>
 

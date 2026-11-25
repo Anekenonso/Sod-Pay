@@ -108,12 +108,12 @@ export function PayView({ id }: PayViewProps) {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-lg py-16 px-4 animate-pulse space-y-6">
-        <div className="h-8 w-48 bg-slate-200 rounded" />
+      <div className="mx-auto max-w-lg py-16 px-4 space-y-6">
+        <div className="h-8 w-48 bg-[#EFEFEA] rounded" />
         <div className="h-64 bg-white border border-[#E5E5E2] rounded-2xl p-6 space-y-4">
-          <div className="h-6 w-1/3 bg-slate-200 rounded" />
-          <div className="h-4 w-1/2 bg-slate-200 rounded" />
-          <div className="h-10 w-full bg-slate-100 rounded" />
+          <div className="h-6 w-1/3 bg-[#EFEFEA] rounded" />
+          <div className="h-4 w-1/2 bg-[#EFEFEA] rounded" />
+          <div className="h-10 w-full bg-[#F7F7F5] rounded" />
         </div>
       </div>
     );
@@ -139,21 +139,61 @@ export function PayView({ id }: PayViewProps) {
 
   if (!sod) return null;
 
+  const isClosed = sod.status !== "Created";
+
+  // Once a Sod is Paid/Claimed/Revealed/Cancelled, lock the payment link for everyone
+  // (except the immediate post-submit confirmation screen when paidTxId is present).
+  if (isClosed && !paidTxId) {
+    return (
+      <main className="min-h-[calc(100vh-8rem)] py-12 px-4 sm:px-6">
+        <div className="mx-auto max-w-lg">
+          <div className="rounded-2xl border border-[#E5E5E2] bg-white p-8 shadow-sm text-center space-y-4">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#0B1D33]/10 text-[#0B1D33]">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-[#111111]">
+              {sod.status === "Cancelled" ? "Payment Link Cancelled" : "Payment Link Closed"}
+            </h1>
+            <p className="text-sm text-[#5C5C5C] leading-relaxed">
+              {sod.status === "Cancelled"
+                ? "This payment link was cancelled by the creator and is no longer accessible."
+                : "This payment link has already been paid and is no longer accessible."}
+            </p>
+            <div className="pt-2">
+              <Link href="/">
+                <Button variant="outline" size="md">
+                  ← Back to Sod Pay
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-[calc(100vh-8rem)] py-12 px-4 sm:px-6">
       <div className="mx-auto max-w-lg">
-        <div className="rounded-2xl border border-[#E5E5E2] bg-white p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="rounded-2xl border border-[#E5E5E2] bg-white p-5 sm:p-8 shadow-sm space-y-6 overflow-hidden min-w-0">
           {/* Header */}
-          <div className="flex items-start justify-between">
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#5C5C5C]">
-                Private Payment Request
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <span className="text-xs font-medium text-[#5C5C5C]">
+                Private payment request
               </span>
-              <h1 className="mt-1 text-2xl font-bold text-[#111111]">
-                {sod.amount ? `${sod.amount} TARI` : "Open Payment"}
+              <h1 className="mt-1 text-2xl font-semibold text-[#111111] tabular-nums break-words">
+                {sod.amount ? `${sod.amount} TARI` : "Open payment"}
               </h1>
             </div>
-            <Badge status={sod.status} />
+            <Badge status={sod.status} className="flex-shrink-0" />
           </div>
 
           {/* Description */}

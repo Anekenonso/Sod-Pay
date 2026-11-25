@@ -1,7 +1,6 @@
 "use client";
 
 import { useWallet } from "./WalletContext";
-import { Button } from "@/components/ui/Button";
 
 export function ConnectButton() {
   const { address, isConnected, walletType, walletName, disconnect } = useWallet();
@@ -21,16 +20,15 @@ export function ConnectButton() {
     (walletType === "extension" || walletType === "sapient"
       ? "Extension"
       : walletType === "daemon"
-      ? "Daemon"
-      : "View");
+        ? "Daemon"
+        : "View");
 
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[#E5E5E2] bg-white text-xs font-mono shadow-sm">
         <span
-          className={`h-1.5 w-1.5 rounded-full ${
-            walletType === "manual" ? "bg-amber-500" : "bg-[#1F7A4D]"
-          }`}
+          className={`h-1.5 w-1.5 rounded-full ${walletType === "manual" ? "bg-amber-500" : "bg-[#1F7A4D]"
+            }`}
         />
         <span className="text-[10px] font-sans font-semibold uppercase tracking-wider text-[#5C5C5C] border-r border-[#E5E5E2] pr-1.5 mr-0.5">
           {typeLabel}

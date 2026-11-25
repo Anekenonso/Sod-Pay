@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Sod } from "@/lib/sod";
 import { Button } from "@/components/ui/Button";
+import { QrCode } from "@/components/ui/QrCode";
 
 interface SharePanelProps {
   sod: Sod;
@@ -35,16 +36,16 @@ export function SharePanel({ sod, claimBadgeId }: SharePanelProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h3 className="text-lg font-bold text-[#111111]">Sod Created Successfully</h3>
+        <h3 className="text-lg font-semibold text-[#111111]">Sod created</h3>
         <p className="mt-1 text-xs text-[#5C5C5C]">
-          Share this link with your payer. The amount will remain completely private.
+          Share this link with your payer. The amount remains completely private.
         </p>
       </div>
 
       {/* Share Link Box */}
       <div className="rounded-xl border border-[#E5E5E2] bg-[#F7F7F5] p-4 space-y-3">
-        <label className="block text-xs font-bold uppercase tracking-wider text-[#5C5C5C]">
-          Private Payment Link
+        <label className="block text-xs font-medium text-[#5C5C5C]">
+          Private payment link
         </label>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <input
@@ -53,34 +54,17 @@ export function SharePanel({ sod, claimBadgeId }: SharePanelProps) {
             value={payUrl}
             className="flex-1 rounded-lg border border-[#E5E5E2] bg-white px-3 py-2 text-sm text-[#111111] font-mono select-all focus:outline-none min-w-0 truncate"
           />
-          <Button onClick={handleCopy} size="sm" className="whitespace-nowrap px-4 font-semibold min-h-[40px] justify-center">
-            {copied ? "Copied!" : "Copy Link"}
+          <Button onClick={handleCopy} size="sm" className="whitespace-nowrap px-4 font-medium min-h-[40px] justify-center">
+            {copied ? "Copied" : "Copy link"}
           </Button>
         </div>
       </div>
 
-      {/* QR Code Placeholder / Visual */}
+      {/* Scannable QR Code */}
       <div className="flex flex-col items-center justify-center p-6 bg-white border border-[#E5E5E2] rounded-xl text-center">
-        <div className="h-40 w-40 bg-[#F7F7F5] border border-[#E5E5E2] rounded-lg p-2 flex flex-col items-center justify-center mb-3">
-          {/* Stylized QR Code Visual Pattern */}
-          <div className="grid grid-cols-5 gap-1.5 p-2 bg-white rounded border border-[#E5E5E2]">
-            <div className="h-5 w-5 bg-[#0B1D33]" />
-            <div className="h-5 w-5 bg-white" />
-            <div className="h-5 w-5 bg-[#0B1D33]" />
-            <div className="h-5 w-5 bg-white" />
-            <div className="h-5 w-5 bg-[#0B1D33]" />
-            <div className="h-5 w-5 bg-white" />
-            <div className="h-5 w-5 bg-[#E8C547]" />
-            <div className="h-5 w-5 bg-white" />
-            <div className="h-5 w-5 bg-[#0B1D33]" />
-            <div className="h-5 w-5 bg-white" />
-            <div className="h-5 w-5 bg-[#0B1D33]" />
-            <div className="h-5 w-5 bg-white" />
-            <div className="h-5 w-5 bg-[#0B1D33]" />
-            <div className="h-5 w-5 bg-white" />
-            <div className="h-5 w-5 bg-[#0B1D33]" />
-          </div>
-          <span className="text-[10px] text-[#5C5C5C] mt-1 font-mono">Scan to Pay</span>
+        <div className="bg-white border border-[#E5E5E2] rounded-lg p-3 flex flex-col items-center justify-center mb-3">
+          <QrCode value={payUrl} size={156} />
+          <span className="text-[10px] text-[#5C5C5C] mt-2 font-mono">Scan to Pay</span>
         </div>
         <p className="text-xs text-[#5C5C5C]">
           Payer can scan this QR code or click your payment link.

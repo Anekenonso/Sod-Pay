@@ -10,12 +10,13 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-[#E5E5E2] bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-40 w-full border-b border-[#E5E5E2] bg-white">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        {/* Wordmark logo with emblem & Mainnet badge */}
+        {/* Wordmark logo with Split-Seal mark & quiet Mainnet meta */}
         <div className="flex items-center gap-3">
           <Logo />
-          <span className="hidden sm:inline-block text-[11px] px-2.5 py-0.5 rounded-full font-semibold border border-slate-200 bg-slate-100 text-[#5C5C5C] select-none">
+          <span className="hidden sm:inline-flex items-center gap-1.5 font-mono text-xs text-[#5C5C5C] select-none">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#1F7A4D]" />
             Mainnet
           </span>
         </div>

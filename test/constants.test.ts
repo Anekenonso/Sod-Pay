@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ROUTES, COLORS, MICROCOPY, APP_CONFIG, FEES } from "../lib/constants";
+import { ROUTES, COLORS, MICROCOPY, FEES } from "../lib/constants";
 
 describe("constants", () => {
   it("resolves routes correctly", () => {

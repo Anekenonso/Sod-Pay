@@ -13,6 +13,7 @@ export default function MySodsPage() {
   const client = useTariClient();
   const { address: userAddress, isConnected, promptConnect } = useWallet();
   const [sods, setSods] = useState<Sod[]>([]);
+  const [paidSods, setPaidSods] = useState<Sod[]>([]);
   const [badgeMap, setBadgeMap] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,12 +23,17 @@ export default function MySodsPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const list = await client.listSodsByCreator(address);
-        setSods(list);
+        const [createdList, paidList] = await Promise.all([
+          client.listSodsByCreator(address),
+          client.listSodsByPayer ? client.listSodsByPayer(address) : Promise.resolve([]),
+        ]);
+        setSods(createdList);
+        const createdIds = new Set(createdList.map((s) => s.id));
+        setPaidSods(paidList.filter((s) => !createdIds.has(s.id)));
 
-        // Check badge holdings on-chain for each Sod
+        // Check badge holdings on-chain for each created Sod
         const holdings: Record<string, boolean> = {};
-        for (const sod of list) {
+        for (const sod of createdList) {
           holdings[sod.id] = await client.userHoldsClaimBadge(sod.id, address);
         }
         setBadgeMap(holdings);
@@ -50,6 +56,7 @@ export default function MySodsPage() {
     } else {
       setIsLoading(false);
       setSods([]);
+      setPaidSods([]);
     }
   }, [userAddress, loadSods]);
 
@@ -59,7 +66,7 @@ export default function MySodsPage() {
         {/* Header with Title and Create Action */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-[#111111]">
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#111111]">
               My Sods
             </h1>
             <p className="mt-1 text-sm text-[#5C5C5C]">
@@ -122,14 +129,14 @@ export default function MySodsPage() {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-48 rounded-xl border border-[#E5E5E2] bg-white p-5 animate-pulse flex flex-col justify-between"
+                className="h-48 rounded-xl border border-[#E5E5E2] bg-white p-5 flex flex-col justify-between"
               >
                 <div className="space-y-3">
-                  <div className="h-5 w-20 bg-slate-200 rounded" />
-                  <div className="h-6 w-3/4 bg-slate-200 rounded" />
-                  <div className="h-4 w-1/3 bg-slate-200 rounded" />
+                  <div className="h-5 w-20 bg-[#EFEFEA] rounded" />
+                  <div className="h-6 w-3/4 bg-[#EFEFEA] rounded" />
+                  <div className="h-4 w-1/3 bg-[#EFEFEA] rounded" />
                 </div>
-                <div className="h-8 w-full bg-slate-100 rounded" />
+                <div className="h-8 w-full bg-[#F7F7F5] rounded" />
               </div>
             ))}
           </div>
@@ -146,7 +153,7 @@ export default function MySodsPage() {
               Retry
             </Button>
           </div>
-        ) : sods.length === 0 ? (
+        ) : sods.length === 0 && paidSods.length === 0 ? (
           /* Empty State (Done-when: empty CTA Create a Sod) */
           <div className="rounded-2xl border border-dashed border-[#E5E5E2] bg-white p-12 text-center max-w-lg mx-auto">
             <div className="mx-auto h-12 w-12 rounded-full bg-[#E8C547]/20 flex items-center justify-center text-[#111111] font-bold mb-4">
@@ -164,14 +171,42 @@ export default function MySodsPage() {
           </div>
         ) : (
           /* List State */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sods.map((sod) => (
-              <SodCard
-                key={sod.id}
-                sod={sod}
-                holdsClaimBadge={badgeMap[sod.id] ?? false}
-              />
-            ))}
+          <div className="space-y-10">
+            {sods.length > 0 && (
+              <section className="space-y-4">
+                <h2 className="text-sm font-medium text-[#5C5C5C]">
+                  Created by you
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {sods.map((sod) => (
+                    <SodCard
+                      key={sod.id}
+                      sod={sod}
+                      role="creator"
+                      holdsClaimBadge={badgeMap[sod.id] ?? false}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {paidSods.length > 0 && (
+              <section className="space-y-4">
+                <h2 className="text-sm font-medium text-[#5C5C5C]">
+                  Payments made
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {paidSods.map((sod) => (
+                    <SodCard
+                      key={sod.id}
+                      sod={sod}
+                      role="payer"
+                      holdsClaimBadge={false}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>

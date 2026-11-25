@@ -6,6 +6,7 @@ export interface Sod {
   amount: string | null; // null = open amount
   description: string;
   creator: string;
+  payer?: string | null;
   claimAuthority: string; // Badge resource address / id
   paidAmount: string | null; // Confidential until reveal
   expiryEpoch: number | null;
