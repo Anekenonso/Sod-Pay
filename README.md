@@ -17,7 +17,7 @@
 - **Deployed Mainnet Template:** [`template_f633483cd1d57317f6d9e104ecb2c5c1a37a8def33abf3784c15207d47fd3855`](https://indexer-a.ootle.tari.com/templates/f633483cd1d57317f6d9e104ecb2c5c1a37a8def33abf3784c15207d47fd3855)
 - **Publish Transaction ID:** `b8e2d6619ecfc4e67149d71c4179504bdd8d5d3dbff44faae0ad81ff34e039a4`
 - **Tari Template Source:** [`template/src/lib.rs`](template/src/lib.rs) (Tari Ootle WASM contract)
-- **Announcement:** (add before contest post)
+- **Announcement:** [Get Paid Without Broadcasting the Amount — Sod Pay on Tari Mainnet (Medium)](https://medium.com/@anekenonso/get-paid-without-broadcasting-the-amount-sod-pay-on-tari-mainnet-bd57653107a3)
 - **Prize address:** `otl_1c666m9fy9s65enc77un8480jwjxl6s3ql59qqa7rty6qvpa66ge55c2mhc8sk3f5lv3k8v4kz5mf5wu54gjsamvxqsxhj5f7gwukyvcvlkt29`
 
 ---
@@ -43,7 +43,39 @@ Standard Web3 payments broadcast transaction amounts, wallet balances, and count
 
 ---
 
-## 5. Product Tour
+## 5. How to Use Sod Pay
+
+### 1. Open Sod Pay (No Wallet Required to Browse)
+Visit [https://sod-pay.vercel.app](https://sod-pay.vercel.app). You can explore the workflow and FAQ without connecting a wallet—your wallet is only requested when you create, pay, claim, cancel, or reveal a Sod.
+
+![Sod Pay Homepage](assets/screenshots/hero-landing.png)
+
+### 2. Create a Private Payment Link
+Click **Create a Sod** (`/app/create`), connect your **Sapient** browser extension or local **`tari_ootle_walletd`**, and enter:
+- **Description / Note** (required)
+- **Amount (TARI)** — leave blank for an **open-amount** link, or set a fixed requested amount
+- **Expires In (Epochs)** — optional network epoch duration
+
+Submitting instantiates a `SodPay` component on Tari Ootle mainnet and mints a unique non-fungible **Claim Badge** directly to your wallet.
+
+![How Sod Pay Works](assets/screenshots/how-it-works.png)
+
+### 3. Share & Get Paid Privately
+Send the `/pay/<componentAddress>` URL or QR code to your payer. The payer connects their wallet and deposits TARI into the component's confidential vault, transitioning the Sod from `Created` to `Paid`.
+
+![Privacy by Design](assets/screenshots/privacy-pillars.png)
+
+### 4. Manage, Claim, or Mutually Reveal in My Sods
+Open **My Sods** (`/app`) to view links created or paid in your session—or paste any `component_...` address into the **Import Sod** bar to load it on-chain from another browser or device.
+- **Claim:** Only the wallet holding the Claim Badge can withdraw funds from the vault (`Paid` → `Claimed`).
+- **Cancel:** Creators can cancel unpaid links while in `Created` status.
+- **Mutual Reveal:** Either creator or payer can call `request_reveal()`, and the other party can call `approve_reveal()` to unlock the contract's `Revealed` attestation state.
+
+![My Sods Dashboard](assets/screenshots/my-sods-dashboard.png)
+
+---
+
+## 6. Product Tour
 
 - `/` — **Homepage:** Project value propositions, interactive FAQ accordion, scroll reveal animations, and hero CTAs. No wallet connection prompt on visit.
 - `/app` — **My Sods:** Creator dashboard listing authentic on-chain payment links with real-time status and badge ownership detection.
