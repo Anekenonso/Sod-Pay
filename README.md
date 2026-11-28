@@ -18,7 +18,7 @@
 - **Publish Transaction ID:** `b8e2d6619ecfc4e67149d71c4179504bdd8d5d3dbff44faae0ad81ff34e039a4`
 - **Tari Template Source:** [`template/src/lib.rs`](template/src/lib.rs) (Tari Ootle WASM contract)
 - **Announcement:** [Get Paid Without Broadcasting the Amount — Sod Pay on Tari Mainnet (Medium)](https://medium.com/@anekenonso/get-paid-without-broadcasting-the-amount-sod-pay-on-tari-mainnet-bd57653107a3)
-- **Prize address:** `otl_1c666m9fy9s65enc77un8480jwjxl6s3ql59qqa7rty6qvpa66ge55c2mhc8sk3f5lv3k8v4kz5mf5wu54gjsamvxqsxhj5f7gwukyvcvlkt29`
+- **Prize address:** `12Lz1AcdobKL9czd7fqkdQZTBAM8VWVdAnZP2Lk3aXmZbVFbffZGLM9Sh4QxGiXu3erstBeZPfFDaopRmof1fVFXS75`
 
 ---
 
