@@ -16,7 +16,7 @@ const FAQS: FaqItem[] = [
   {
     question: "How does the amount stay private?",
     answer:
-      "Tari Ootle leverages confidential outputs. The payment vault keeps the deposited amount shielded until both the payer and creator mutually consent to reveal it.",
+      "Tari Ootle uses confidential vaults and outputs for deposited funds. For open-amount links, no requested amount is stored on-chain; for fixed-amount links, the requested amount is visible on the link for payer verification while vault settlement remains confidential.",
   },
   {
     question: "Who can claim the payment?",
@@ -31,7 +31,7 @@ const FAQS: FaqItem[] = [
   {
     question: "What happens during a mutual reveal?",
     answer:
-      "When both creator and payer approve the reveal, the payment amount becomes verifiable on-chain. Neither party can expose the amount unilaterally.",
+      "When both creator and payer approve the reveal on-chain, the Sod transitions to Revealed and unlocks the contract's attested reveal state. Neither party can trigger this reveal unilaterally.",
   },
 ];
 

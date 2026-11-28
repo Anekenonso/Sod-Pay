@@ -22,7 +22,7 @@ export default function Home() {
             </h1>
 
             <p className="text-base sm:text-lg text-[#5C5C5C] max-w-xl leading-relaxed">
-              Send and receive one-off payments without broadcasting amounts to the public ledger. Only a sovereign claim badge unlocks the vault.
+              Send and receive one-off payments using Tari Ootle confidential vaults. Only a sovereign claim badge unlocks the vault.
             </p>
 
             <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -125,7 +125,7 @@ export default function Home() {
                   <span className="font-mono text-xs text-[#E8C547]">01 · Vault</span>
                   <h3 className="mt-3 text-lg font-semibold">Confidential Vault</h3>
                   <p className="mt-2 text-sm text-[#CBD5E1] leading-relaxed">
-                    Paid amounts remain completely confidential inside Tari Ootle vaults. The public ledger never broadcasts transaction amounts.
+                    Deposited funds are held inside Tari Ootle confidential vaults rather than transparent public balances.
                   </p>
                 </div>
               </div>
@@ -149,7 +149,7 @@ export default function Home() {
                   <span className="font-mono text-xs text-[#5C5C5C]">03 · Disclosure</span>
                   <h3 className="mt-3 text-lg font-semibold text-[#111111]">Mutual Reveal Only</h3>
                   <p className="mt-2 text-sm text-[#5C5C5C] leading-relaxed">
-                    Both parties must approve a reveal. Neither creator nor payer can expose the amount alone.
+                    Both parties must approve an on-chain reveal before the contract&apos;s reveal flag and attested amount are unlocked.
                   </p>
                 </div>
               </div>
@@ -195,7 +195,7 @@ export default function Home() {
                 <div>
                   <h3 className="text-base font-semibold text-[#111111]">Share the link</h3>
                   <p className="mt-1 text-sm text-[#5C5C5C] leading-relaxed">
-                    Send the payment link or QR code to the payer. The link contains the component address; amount remains undisclosed.
+                    Send the payment link or QR code to the payer. Use an open-amount link when you don&apos;t want a requested amount shown up front.
                   </p>
                 </div>
               </div>

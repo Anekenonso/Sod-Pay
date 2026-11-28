@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { MICROCOPY } from "@/lib/constants";
 import { formatFriendlyError } from "@/lib/errors";
+import { useTariClient } from "@/lib/tari/provider";
 
 export interface CreateSodFormData {
   amount: string;
@@ -19,9 +20,10 @@ interface CreateFormProps {
 }
 
 export function CreateForm({ onSubmit, isLoading = false, error = null }: CreateFormProps) {
+  const client = useTariClient();
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [expiryHours, setExpiryHours] = useState("");
+  const [expiryEpochs, setExpiryEpochs] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,9 +41,18 @@ export function CreateForm({ onSubmit, isLoading = false, error = null }: Create
     }
 
     let expiryEpoch: number | null = null;
-    if (expiryHours.trim() && !isNaN(Number(expiryHours)) && Number(expiryHours) > 0) {
-      // Mock epoch conversion: current timestamp + hours * 3600
-      expiryEpoch = Math.floor(Date.now() / 1000) + Math.floor(Number(expiryHours) * 3600);
+    if (expiryEpochs.trim()) {
+      const delta = Number(expiryEpochs);
+      if (!Number.isInteger(delta) || delta <= 0) {
+        setValidationError("Expiry duration must be a positive whole number of epochs");
+        return;
+      }
+      const currentEpoch = client.getCurrentEpoch ? await client.getCurrentEpoch() : null;
+      if (currentEpoch === null) {
+        setValidationError("Could not read current network epoch from Tari indexer. Leave expiry blank or try again.");
+        return;
+      }
+      expiryEpoch = currentEpoch + delta;
     }
 
     try {
@@ -107,14 +118,15 @@ export function CreateForm({ onSubmit, isLoading = false, error = null }: Create
 
       {/* Expiry Field */}
       <Input
-        id="expiryHours"
-        label="Expires In (Hours - Optional)"
+        id="expiryEpochs"
+        label="Expires In (Epochs - Optional)"
         type="number"
         min="1"
-        value={expiryHours}
-        onChange={(e) => setExpiryHours(e.target.value)}
-        placeholder="e.g. 24 (optional)"
-        helperText="Payment link will expire after this duration. Leave blank for no expiry."
+        step="1"
+        value={expiryEpochs}
+        onChange={(e) => setExpiryEpochs(e.target.value)}
+        placeholder="e.g. 10 (optional)"
+        helperText="Payment link expires after this many Tari Ootle epochs. Leave blank for no expiry."
         disabled={isLoading}
       />
 

@@ -81,7 +81,7 @@ The protocol guarantees 5 cryptographic invariants in both the Rust smart contra
 2. **Mutual Reveal Requirement:** Amount remains confidential until two distinct cryptographic parties approve.
 3. **Cancellation Rule:** Cancel succeeds only from `Created` status by the original creator. Calling `cancel` after `pay` aborts immediately.
 4. **Amount Enforcement:** Fixed-amount Sods reject mismatched deposits with clear error diagnostics.
-5. **Expiry Protection:** Expired Sods reject new deposits and allow creator reclaim.
+5. **Expiry Protection:** Expired Sods reject new deposits on-chain (`Consensus::current_epoch() <= expiry`). Unpaid Sods can be cancelled by the creator.
 
 ---
 

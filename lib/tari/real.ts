@@ -73,8 +73,8 @@ function extractComponentAndBadgeFromTxResult(
             const idStr = String(
               typeof substateId === "object" && substateId !== null
                 ? (substateId as Record<string, unknown>).Component ||
-                    (substateId as Record<string, unknown>).Resource ||
-                    JSON.stringify(substateId)
+                (substateId as Record<string, unknown>).Resource ||
+                JSON.stringify(substateId)
                 : substateId
             );
             if (idStr.includes("component_") && !componentAddress) {
@@ -376,7 +376,7 @@ export class RealTariSodClient implements TariSodClient {
     private templateAddress: string = APP_CONFIG.TEMPLATE_ADDRESS,
     private walletDaemonUrl: string = APP_CONFIG.WALLET_DAEMON_URL,
     private defaultMaxEpoch: number = 1000000
-  ) {}
+  ) { }
 
   public setActiveSession(session: ActiveWalletSession | null): void {
     this.activeSession = session;
@@ -1218,48 +1218,51 @@ export class RealTariSodClient implements TariSodClient {
       const stateObj = (
         Array.isArray(decodedState)
           ? {
-              status: decodedState[0],
-              amount: decodedState[1],
-              description: decodedState[2],
-              creator: decodedState[3],
-              claim_badge_resource: decodedState[4],
-              vault: decodedState[5],
-              expiry_epoch: decodedState[6],
-              is_revealed: decodedState[7],
-              reveal_requested_by: decodedState[8],
-              payer: decodedState[9],
-            }
+            status: decodedState[0],
+            amount: decodedState[1],
+            description: decodedState[2],
+            creator: decodedState[3],
+            claim_badge_resource: decodedState[4],
+            vault: decodedState[5],
+            expiry_epoch: decodedState[6],
+            is_revealed: decodedState[7],
+            reveal_requested_by: decodedState[8],
+            payer: decodedState[9],
+          }
           : decodedState
       ) as Record<string, unknown>;
 
       const resolvedStatus = parseStatus(stateObj.status ?? component.status);
+      const resolvedAmount =
+        stateObj.amount !== undefined && stateObj.amount !== null
+          ? formatMicroTari(String(stateObj.amount))
+          : component.amount !== undefined && component.amount !== null
+            ? formatMicroTari(String(component.amount))
+            : null;
+      const isRevealed = Boolean(stateObj.is_revealed ?? component.is_revealed);
+      const rawPaidAmount =
+        stateObj.paid_amount !== undefined && stateObj.paid_amount !== null
+          ? formatMicroTari(String(stateObj.paid_amount))
+          : component.paid_amount !== undefined && component.paid_amount !== null
+            ? formatMicroTari(String(component.paid_amount))
+            : null;
 
       return {
         id: sodId,
         status: resolvedStatus,
-        amount:
-          stateObj.amount !== undefined && stateObj.amount !== null
-            ? formatMicroTari(String(stateObj.amount))
-            : component.amount !== undefined && component.amount !== null
-            ? formatMicroTari(String(component.amount))
-            : null,
+        amount: resolvedAmount,
         description: String(stateObj.description ?? component.description ?? ""),
         creator: String(stateObj.creator ?? component.creator ?? ""),
         payer:
           stateObj.payer !== undefined && stateObj.payer !== null
             ? String(stateObj.payer)
             : component.payer !== undefined && component.payer !== null
-            ? String(component.payer)
-            : null,
+              ? String(component.payer)
+              : null,
         claimAuthority: String(stateObj.claim_badge_resource ?? stateObj.claim_authority ?? component.claim_authority ?? ""),
-        paidAmount:
-          stateObj.paid_amount !== undefined && stateObj.paid_amount !== null
-            ? formatMicroTari(String(stateObj.paid_amount))
-            : component.paid_amount !== undefined && component.paid_amount !== null
-            ? formatMicroTari(String(component.paid_amount))
-            : null,
+        paidAmount: rawPaidAmount ?? (isRevealed ? resolvedAmount : null),
         expiryEpoch: ((stateObj.expiry_epoch ?? component.expiry_epoch) as number) ?? null,
-        isRevealed: Boolean(stateObj.is_revealed ?? component.is_revealed),
+        isRevealed,
         revealRequestedBy: ((stateObj.reveal_requested_by ?? component.reveal_requested_by) as string) || null,
         createdAt: ((stateObj.created_at ?? component.created_at) as number) ?? null,
         paidAt: ((stateObj.paid_at ?? component.paid_at) as number) ?? null,
@@ -1341,6 +1344,16 @@ export class RealTariSodClient implements TariSodClient {
       return sods;
     } catch {
       return [];
+    }
+  }
+
+  async getCurrentEpoch(): Promise<number | null> {
+    try {
+      const provider = await this.getProvider();
+      const epoch = await provider.getCurrentEpoch();
+      return typeof epoch === "number" && Number.isFinite(epoch) ? epoch : null;
+    } catch {
+      return null;
     }
   }
 

@@ -32,5 +32,6 @@ export interface TariSodClient {
   listSodsByCreator(creatorAddress: string): Promise<Sod[]>;
   listSodsByPayer?(payerAddress: string): Promise<Sod[]>;
   getAccountPublicKey?(accountAddress: string): Promise<string | null>;
+  getCurrentEpoch?(): Promise<number | null>;
   userHoldsClaimBadge(sodId: string, userAddress: string): Promise<boolean>;
 }

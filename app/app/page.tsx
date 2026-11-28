@@ -17,6 +17,9 @@ export default function MySodsPage() {
   const [badgeMap, setBadgeMap] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [importId, setImportId] = useState("");
+  const [importError, setImportError] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const loadSods = useCallback(
     async (address: string) => {
@@ -60,11 +63,40 @@ export default function MySodsPage() {
     }
   }, [userAddress, loadSods]);
 
+  const handleImportSod = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = importId.trim();
+    if (!trimmed) return;
+    setImportError(null);
+    setIsImporting(true);
+    try {
+      const found = await client.getSod(trimmed);
+      if (!found) {
+        setImportError("No Sod component found on-chain for that ID.");
+        return;
+      }
+      if (userAddress && typeof window !== "undefined") {
+        const key = `sod_created_${userAddress}`;
+        const existing: string[] = JSON.parse(localStorage.getItem(key) || "[]");
+        if (!existing.includes(found.id)) {
+          existing.push(found.id);
+          localStorage.setItem(key, JSON.stringify(existing));
+        }
+        await loadSods(userAddress);
+      }
+      setImportId("");
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : "Failed to look up Sod component");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   return (
     <main className="min-h-[calc(100vh-8rem)] py-12 px-4 sm:px-6">
       <div className="mx-auto max-w-6xl">
         {/* Header with Title and Create Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#111111]">
               My Sods
@@ -99,6 +131,30 @@ export default function MySodsPage() {
             </Link>
           </div>
         </div>
+
+        {/* Cross-device Component Import */}
+        {userAddress && (
+          <form onSubmit={handleImportSod} className="mb-8 rounded-xl border border-[#E5E5E2] bg-white p-4">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={importId}
+                onChange={(e) => setImportId(e.target.value)}
+                placeholder="Import existing Sod by component address (component_...)"
+                disabled={isImporting}
+                className="flex-1 min-w-0 rounded-lg border border-[#E5E5E2] bg-[#F7F7F5] px-3 py-2 text-sm font-mono text-[#111111] placeholder:font-sans placeholder:text-[#5C5C5C]/70 focus:border-[#0B1D33] focus:bg-white focus:outline-none"
+              />
+              <Button type="submit" variant="outline" size="sm" disabled={isImporting || !importId.trim()}>
+                {isImporting ? "Checking…" : "Import Sod"}
+              </Button>
+            </div>
+            {importError && (
+              <p className="mt-2 text-xs text-[#B33A3A]" role="alert">
+                {importError}
+              </p>
+            )}
+          </form>
+        )}
 
         {/* Unconnected State */}
         {!userAddress ? (

@@ -353,7 +353,9 @@ export function SodDetailView({ id }: SodDetailViewProps) {
                 Revealed by Mutual Agreement
               </span>
               <p className="mt-1 text-2xl font-extrabold text-emerald-950 font-mono">
-                {sod.paidAmount} TARI
+                {sod.paidAmount ?? sod.amount
+                  ? `${sod.paidAmount ?? sod.amount} TARI`
+                  : "Confirmed (open amount)"}
               </p>
               <p className="mt-1 text-xs text-emerald-700">
                 Both parties approved revealing this confidential payment amount.

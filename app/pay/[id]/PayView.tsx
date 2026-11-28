@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useTariClient } from "@/lib/tari/provider";
-import { Sod } from "@/lib/sod";
+import { Sod, isExpired } from "@/lib/sod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
@@ -27,17 +27,26 @@ export function PayView({ id }: PayViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [paidTxId, setPaidTxId] = useState<string | null>(null);
   const [isPaidSuccess, setIsPaidSuccess] = useState(false);
+  const [isLinkExpired, setIsLinkExpired] = useState(false);
 
   const loadSod = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await client.getSod(id);
+      const [data, currentEpoch] = await Promise.all([
+        client.getSod(id),
+        client.getCurrentEpoch ? client.getCurrentEpoch().catch(() => null) : Promise.resolve(null),
+      ]);
       if (!data) {
         setError("Payment link not found");
         return;
       }
       setSod(data);
+      if (currentEpoch !== null && isExpired(data, currentEpoch)) {
+        setIsLinkExpired(true);
+      } else {
+        setIsLinkExpired(false);
+      }
       if (data.amount) {
         setCustomAmount(data.amount);
       }
@@ -90,6 +99,13 @@ export function PayView({ id }: PayViewProps) {
       });
       setError(formatted.userMessage);
       toast(formatted.userMessage, { type: "error", detail: formatted.rawMessage });
+      // Re-sync on-chain state so stale "Created" UI transitions to closed if already paid/cancelled
+      try {
+        const latest = await client.getSod(id);
+        if (latest) setSod(latest);
+      } catch {
+        // Ignore refresh failure; keep formatted payment error visible
+      }
     } finally {
       setIsPaying(false);
     }
@@ -139,9 +155,9 @@ export function PayView({ id }: PayViewProps) {
 
   if (!sod) return null;
 
-  const isClosed = sod.status !== "Created";
+  const isClosed = sod.status !== "Created" || isLinkExpired;
 
-  // Once a Sod is Paid/Claimed/Revealed/Cancelled, lock the payment link for everyone
+  // Once a Sod is Paid/Claimed/Revealed/Cancelled or expired, lock the payment link for everyone
   // (except the immediate post-submit confirmation screen when paidTxId is present).
   if (isClosed && !paidTxId) {
     return (
@@ -159,12 +175,18 @@ export function PayView({ id }: PayViewProps) {
               </svg>
             </div>
             <h1 className="text-xl font-bold text-[#111111]">
-              {sod.status === "Cancelled" ? "Payment Link Cancelled" : "Payment Link Closed"}
+              {sod.status === "Cancelled"
+                ? "Payment Link Cancelled"
+                : isLinkExpired && sod.status === "Created"
+                  ? "Payment Link Expired"
+                  : "Payment Link Closed"}
             </h1>
             <p className="text-sm text-[#5C5C5C] leading-relaxed">
               {sod.status === "Cancelled"
                 ? "This payment link was cancelled by the creator and is no longer accessible."
-                : "This payment link has already been paid and is no longer accessible."}
+                : isLinkExpired && sod.status === "Created"
+                  ? "This payment link has passed its expiry epoch and can no longer accept deposits."
+                  : "This payment link has already been paid and is no longer accessible."}
             </p>
             <div className="pt-2">
               <Link href="/">
